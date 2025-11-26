@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../models/mission.dart';
-import '../../../../constants/app_theme.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_detail_screen.dart';
+import '../../../models/mission.dart';
+import '../../../constants/app_theme.dart';
 
 class MissionCard extends StatelessWidget {
   final Mission mission;
@@ -53,10 +54,9 @@ class MissionCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: InkWell(
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Mission: ${mission.nomClient} - Statut: $normalizedStatus'),
-              duration: const Duration(seconds: 1),
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => MissionDetailScreen(mission: mission),
             ),
           );
         },

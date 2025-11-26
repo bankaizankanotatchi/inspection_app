@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:inspec_app/constants/app_theme.dart';
 import 'package:inspec_app/models/mission.dart';
-import 'package:inspec_app/screens/pages/stats/widgets/recent_mission_item_widget.dart';
+import 'package:inspec_app/pages/stats/widgets/recent_mission_item_widget.dart';
 
 class StatsRecentMissions extends StatelessWidget {
   final List<Mission> recentMissions;

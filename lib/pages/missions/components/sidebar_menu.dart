@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../models/verificateur.dart';
-import '../../../../models/mission.dart';
-import '../../../../services/hive_service.dart';
-import '../../../../constants/app_theme.dart';
-import '../../../login_screen.dart';
+import '../../../models/verificateur.dart';
+import '../../../models/mission.dart';
+import '../../../services/hive_service.dart';
+import '../../../constants/app_theme.dart';
+import '../../login_screen.dart';
 
 class SidebarMenu extends StatelessWidget {
   final bool showSidebar;

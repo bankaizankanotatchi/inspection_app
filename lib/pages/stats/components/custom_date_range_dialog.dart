@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inspec_app/constants/app_theme.dart';
-import 'package:inspec_app/screens/pages/stats/widgets/date_selector_widget.dart';
+import 'package:inspec_app/pages/stats/widgets/date_selector_widget.dart';
 
 class CustomDateRangeDialog extends StatefulWidget {
   final DateTime? initialStartDate;

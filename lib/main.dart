@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:inspec_app/screens/pages/home/home_screen.dart';
+import 'package:inspec_app/pages/missions/home_screen.dart';
 import 'services/hive_service.dart';
 import 'constants/app_theme.dart';
-import 'screens/login_screen.dart';
+import 'pages/login_screen.dart';
 import 'models/verificateur.dart';
 
 void main() async {

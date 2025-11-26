@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:inspec_app/models/mission.dart';
 import 'package:inspec_app/models/verificateur.dart';
-import 'package:inspec_app/screens/pages/stats/components/custom_date_range_dialog.dart';
-import 'package:inspec_app/screens/pages/stats/components/stats_app_bar.dart';
-import 'package:inspec_app/screens/pages/stats/components/stats_empty_state.dart';
-import 'package:inspec_app/screens/pages/stats/components/stats_grid.dart';
-import 'package:inspec_app/screens/pages/stats/components/stats_recent_missions.dart';
-import 'package:inspec_app/screens/pages/stats/components/stats_status_distribution.dart';
+import 'package:inspec_app/pages/stats/components/custom_date_range_dialog.dart';
+import 'package:inspec_app/pages/stats/components/stats_app_bar.dart';
+import 'package:inspec_app/pages/stats/components/stats_empty_state.dart';
+import 'package:inspec_app/pages/stats/components/stats_grid.dart';
+import 'package:inspec_app/pages/stats/components/stats_recent_missions.dart';
+import 'package:inspec_app/pages/stats/components/stats_status_distribution.dart';
 import 'package:inspec_app/services/hive_service.dart';
 
 class StatsScreen extends StatefulWidget {

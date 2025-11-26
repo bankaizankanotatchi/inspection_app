@@ -86,7 +86,7 @@ class Mission extends HiveObject {
   DateTime updatedAt;
 
   @HiveField(27)
-  String status; // Nouveau champ status
+  String status;
 
   Mission({
     required this.id,
@@ -161,7 +161,7 @@ class Mission extends HiveObject {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'])
           : DateTime.now(),
-      status: json['status'] ?? 'active', // Valeur par défaut
+      status: json['status'] ?? 'active',
     );
   }
 
@@ -194,7 +194,7 @@ class Mission extends HiveObject {
       'doc_rapport_derniere_verif': docRapportDerniereVerif,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'status': status, // Ajouté dans le JSON
+      'status': status, 
     };
   }
 }

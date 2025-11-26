@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../models/mission.dart';
+import '../../../models/mission.dart';
 
 class SearchDialog extends StatefulWidget {
   final String searchQuery;

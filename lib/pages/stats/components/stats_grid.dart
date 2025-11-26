@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:inspec_app/screens/pages/stats/widgets/stat_card_widget.dart';
+import 'package:inspec_app/pages/stats/widgets/stat_card_widget.dart';
 
 class StatsGrid extends StatelessWidget {
   final int totalMissions;

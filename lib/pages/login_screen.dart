@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:inspec_app/screens/pages/home/home_screen.dart';
+import 'package:inspec_app/pages/missions/home_screen.dart';
 import '../services/hive_service.dart';
 import '../services/supabase_service.dart';
 import '../models/verificateur.dart';

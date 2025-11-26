@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:inspec_app/constants/app_theme.dart';
 import 'package:inspec_app/models/mission.dart';
 import 'package:inspec_app/models/verificateur.dart';
-import 'package:inspec_app/screens/pages/stats/stats_screen.dart';
-import 'package:inspec_app/screens/pages/home/components/filter_dialog.dart';
-import 'package:inspec_app/screens/pages/home/components/home_app_bar.dart';
-import 'package:inspec_app/screens/pages/home/components/mission_card.dart';
-import 'package:inspec_app/screens/pages/home/components/search_dialog.dart';
-import 'package:inspec_app/screens/pages/home/components/sidebar_menu.dart';
-import 'package:inspec_app/screens/pages/home/components/sort_dialog.dart';
+import 'package:inspec_app/pages/stats/stats_screen.dart';
+import 'package:inspec_app/pages/missions/components/filter_dialog.dart';
+import 'package:inspec_app/pages/missions/components/home_app_bar.dart';
+import 'package:inspec_app/pages/missions/components/mission_card.dart';
+import 'package:inspec_app/pages/missions/components/search_dialog.dart';
+import 'package:inspec_app/pages/missions/components/sidebar_menu.dart';
+import 'package:inspec_app/pages/missions/components/sort_dialog.dart';
 import 'package:inspec_app/services/hive_service.dart';
 import 'package:inspec_app/services/supabase_service.dart';
 
@@ -41,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadLocalMissions();
   }
+  
 
   void _loadLocalMissions() {
     setState(() {

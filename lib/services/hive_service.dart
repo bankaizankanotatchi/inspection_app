@@ -175,4 +175,50 @@ class HiveService {
       return [];
     }
   }
+
+  // ============================================================
+  //                  MODIFICATION STATUT MISSION
+  // ============================================================
+
+  /// Mettre à jour le statut d'une mission localement
+  static Future<bool> updateMissionStatus({
+    required String missionId,
+    required String newStatus,
+  }) async {
+    try {
+      final box = Hive.box<Mission>(_missionBox);
+      final mission = box.get(missionId);
+
+      if (mission == null) {
+        print('❌ Mission non trouvée: $missionId');
+        return false;
+      }
+
+      // Modifier directement le statut de la mission existante
+      mission.status = newStatus;
+      mission.updatedAt = DateTime.now(); // Mettre à jour la date de modification
+
+      // Sauvegarder la mission modifiée
+      await mission.save();
+      
+      print('✅ Statut mis à jour localement: $missionId -> $newStatus');
+      return true;
+
+    } catch (e) {
+      print('❌ Erreur mise à jour statut local: $e');
+      return false;
+    }
+  }
+
+  /// Récupérer une mission par son ID
+  static Mission? getMissionById(String missionId) {
+    try {
+      final box = Hive.box<Mission>(_missionBox);
+      return box.get(missionId);
+    } catch (e) {
+      print('❌ Erreur getMissionById: $e');
+      return null;
+    }
+  }
+
 }
