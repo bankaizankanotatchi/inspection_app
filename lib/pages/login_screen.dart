@@ -16,7 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _matriculeController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _obscureMatricule = true; // Pour gérer la visibilité du matricule
   String? _errorMessage;
@@ -28,86 +28,86 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-Future<void> _login() async {
-  // Réinitialiser le message d'erreur
-  setState(() {
-    _errorMessage = null;
-  });
-
-  // Valider le formulaire
-  if (!_formKey.currentState!.validate()) {
-    return;
-  }
-
-  setState(() {
-    _isLoading = true;
-  });
-
-  final nom = _nomController.text.trim();
-  final matricule = _matriculeController.text.trim();
-
-  try {
-// 1️⃣ Vérifier si l'utilisateur existe localement (par matricule)
-final allUsers = HiveService.getAllUsers();
-Verificateur? localUser;
-try {
-  localUser = allUsers.firstWhere(
-    (user) => user.matricule.toUpperCase() == matricule.toUpperCase(),
-  );
-} catch (e) {
-  localUser = null;
-}
-
-if (localUser != null) {
-  if (localUser.nom.toLowerCase() == nom.toLowerCase()) {
-    // Connexion locale réussie
-    await HiveService.saveCurrentUser(localUser);
-    _navigateToHome(localUser);
-    return;
-  } else {
+  Future<void> _login() async {
+    // Réinitialiser le message d'erreur
     setState(() {
-      _errorMessage = 'Nom ou matricule incorrect';
-      _isLoading = false;
+      _errorMessage = null;
     });
-    return;
-  }
-}
 
-    // 2️⃣ Première connexion → Vérifier la connexion internet
-    final hasConnection = await SupabaseService.testConnection();
-    if (!hasConnection) {
-      setState(() {
-        _errorMessage = 'Aucune connexion Internet.\nVeuillez vous connecter pour la première fois.';
-        _isLoading = false;
-      });
+    // Valider le formulaire
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // 3️⃣ Vérifier l'utilisateur sur Supabase
-    final user = await SupabaseService.verifyUser(nom, matricule);
-    if (user != null) {
-      // Utilisateur trouvé → Sauvegarder localement
-      await HiveService.saveCurrentUser(user);
-      _navigateToHome(user);
-    } else {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final nom = _nomController.text.trim();
+    final matricule = _matriculeController.text.trim();
+
+    try {
+      // 1️⃣ Vérifier si l'utilisateur existe localement (par matricule)
+      final allUsers = HiveService.getAllUsers();
+      Verificateur? localUser;
+      try {
+        localUser = allUsers.firstWhere(
+          (user) => user.matricule.toUpperCase() == matricule.toUpperCase(),
+        );
+      } catch (e) {
+        localUser = null;
+      }
+
+      if (localUser != null) {
+        if (localUser.nom.toLowerCase() == nom.toLowerCase()) {
+          // Connexion locale réussie
+          await HiveService.saveCurrentUser(localUser);
+          _navigateToHome(localUser);
+          return;
+        } else {
+          setState(() {
+            _errorMessage = 'Nom ou matricule incorrect';
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
+      // 2️⃣ Première connexion → Vérifier la connexion internet
+      final hasConnection = await SupabaseService.testConnection();
+      if (!hasConnection) {
+        setState(() {
+          _errorMessage =
+              'Aucune connexion Internet.\nVeuillez vous connecter pour la première fois.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 3️⃣ Vérifier l'utilisateur sur Supabase
+      final user = await SupabaseService.verifyUser(nom, matricule);
+      if (user != null) {
+        // Utilisateur trouvé → Sauvegarder localement
+        await HiveService.saveCurrentUser(user);
+        _navigateToHome(user);
+      } else {
+        setState(() {
+          _errorMessage =
+              'Utilisateur non trouvé.\nVérifiez votre nom et matricule.';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
       setState(() {
-        _errorMessage = 'Utilisateur non trouvé.\nVérifiez votre nom et matricule.';
+        _errorMessage = 'Erreur de connexion : ${e.toString()}';
         _isLoading = false;
       });
     }
-  } catch (e) {
-    setState(() {
-      _errorMessage = 'Erreur de connexion : ${e.toString()}';
-      _isLoading = false;
-    });
   }
-}
 
   void _navigateToHome(Verificateur user) {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => HomeScreen(user: user),
-      ),
+      MaterialPageRoute(builder: (context) => HomeScreen(user: user)),
     );
   }
 
@@ -126,18 +126,8 @@ if (localUser != null) {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo/
-                  Image.asset("assets/icon/app_icon.png", height: 100),
+                  Image.asset("assets/icon/app_icon.jpg", height: 100),
                   const SizedBox(height: 16),
-
-                  // Titre
-                  Text(
-                    'Inspection App',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          color: AppTheme.primaryBlue,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
 
                   // Sous-titre
                   Text(
@@ -241,8 +231,9 @@ if (localUser != null) {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text('Se connecter'),

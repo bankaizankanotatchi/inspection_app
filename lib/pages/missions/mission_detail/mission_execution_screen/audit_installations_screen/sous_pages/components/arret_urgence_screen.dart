@@ -1,0 +1,231 @@
+import 'package:flutter/material.dart';
+import 'package:inspec_app/models/mission.dart';
+import 'package:inspec_app/constants/app_theme.dart';
+import 'package:inspec_app/services/hive_service.dart';
+
+class ArretUrgenceScreen extends StatefulWidget {
+  final Mission mission;
+
+  const ArretUrgenceScreen({super.key, required this.mission});
+
+  @override
+  State<ArretUrgenceScreen> createState() => _ArretUrgenceScreenState();
+}
+
+class _ArretUrgenceScreenState extends State<ArretUrgenceScreen> {
+  final _observationController = TextEditingController();
+  bool _isLoading = false;
+  bool _hasData = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final mesures = await HiveService.getOrCreateMesuresEssais(widget.mission.id);
+      if (mesures.testArretUrgence.observation != null) {
+        _observationController.text = mesures.testArretUrgence.observation!;
+        _hasData = true;
+      }
+    } catch (e) {
+      print('❌ Erreur chargement arrêt urgence: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _sauvegarder() async {
+    if (_observationController.text.trim().isEmpty) {
+      _showError('Veuillez saisir une observation');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    
+    try {
+      final success = await HiveService.updateTestArretUrgence(
+        missionId: widget.mission.id,
+        observation: _observationController.text.trim(),
+      );
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Test arrêt urgence sauvegardé'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true);
+      } else {
+        _showError('Erreur lors de la sauvegarde');
+      }
+    } catch (e) {
+      _showError('Erreur: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _annuler() {
+    Navigator.pop(context);
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Test arrêt urgence'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: _annuler,
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.check),
+            onPressed: _sauvegarder,
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Formulaire d'observation
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Résultats des tests d\'arrêt d\'urgence',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.darkBlue,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        TextFormField(
+                          controller: _observationController,
+                          decoration: InputDecoration(
+                            labelText: 'Observations*',
+                            border: OutlineInputBorder(),
+                            hintText: 'Ex: Tous les boutons d\'arrêt d\'urgence fonctionnels, coupure immédiate, réarmement correct, signalisation OK...',
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          maxLines: 8,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Veuillez saisir des observations';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  SizedBox(height: 20),
+                  
+                  // Boutons d'action
+                  Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _sauvegarder,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'SAUVEGARDER',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        height: 50,
+                        child: OutlinedButton(
+                          onPressed: _annuler,
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'ANNULER',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildChecklistItem(String text) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, size: 20, color: Colors.red.shade700),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _observationController.dispose();
+    super.dispose();
+  }
+}

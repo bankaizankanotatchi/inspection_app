@@ -4,20 +4,20 @@ import 'package:inspec_app/constants/app_theme.dart';
 
 class MissionDocumentsSection extends StatelessWidget {
   final Mission mission;
+  final Function(String, bool)? onDocumentChanged;
 
   const MissionDocumentsSection({
     super.key,
     required this.mission,
+    this.onDocumentChanged,
   });
 
-  Widget _buildDocumentItem(BuildContext context, String label, String? docUrl, IconData icon) {
-    final hasDocument = docUrl != null && docUrl.isNotEmpty;
-    
+  Widget _buildDocumentItem(BuildContext context, String label, bool hasDocument, IconData icon, String documentField) {
     return Container(
       margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
         leading: Icon(
@@ -32,44 +32,30 @@ class MissionDocumentsSection extends StatelessWidget {
             fontWeight: hasDocument ? FontWeight.w500 : FontWeight.normal,
           ),
         ),
-        trailing: hasDocument
-            ? Icon(Icons.download_outlined, color: AppTheme.primaryBlue)
-            : Icon(Icons.close_outlined, color: Colors.grey),
-        onTap: hasDocument
-            ? () {
-                // TODO: Implémenter le téléchargement du document
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Téléchargement: $label'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
-            : null,
+        trailing: Checkbox(
+          value: hasDocument,
+          onChanged: (value) {
+            if (value != null) {
+              // Appeler la callback pour mettre à jour l'état
+              onDocumentChanged?.call(documentField, value);
+              
+              // Snackbar de confirmation
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('$label ${value ? 'coché' : 'décoché'}'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            }
+          },
+          activeColor: AppTheme.primaryBlue,
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasDocuments = 
-        mission.docCahierPrescriptions != null ||
-        mission.docNotesCalculs != null ||
-        mission.docSchemasUnifilaires != null ||
-        mission.docPlanMasse != null ||
-        mission.docPlansArchitecturaux != null ||
-        mission.docDeclarationsCe != null ||
-        mission.docListeInstallations != null ||
-        mission.docPlanLocauxRisques != null ||
-        mission.docRapportAnalyseFoudre != null ||
-        mission.docRapportEtudeFoudre != null ||
-        mission.docRegistreSecurite != null ||
-        mission.docRapportDerniereVerif != null;
-
-    if (!hasDocuments) {
-      return SizedBox();
-    }
-
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -98,101 +84,108 @@ class MissionDocumentsSection extends StatelessWidget {
             ),
             SizedBox(height: 16),
             
-            if (mission.docCahierPrescriptions != null)
-              _buildDocumentItem(
-                context,
-                'Cahier des prescriptions',
-                mission.docCahierPrescriptions,
-                Icons.description_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Cahier des prescriptions',
+              mission.docCahierPrescriptions,
+              Icons.description_outlined,
+              'doc_cahier_prescriptions',
+            ),
             
-            if (mission.docNotesCalculs != null)
-              _buildDocumentItem(
-                context,
-                'Notes de calculs',
-                mission.docNotesCalculs,
-                Icons.calculate_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Notes de calculs',
+              mission.docNotesCalculs,
+              Icons.calculate_outlined,
+              'doc_notes_calculs',
+            ),
             
-            if (mission.docSchemasUnifilaires != null)
-              _buildDocumentItem(
-                context,
-                'Schémas unifilaires',
-                mission.docSchemasUnifilaires,
-                Icons.bolt_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Schémas unifilaires',
+              mission.docSchemasUnifilaires,
+              Icons.bolt_outlined,
+              'doc_schemas_unifilaires',
+            ),
             
-            if (mission.docPlanMasse != null)
-              _buildDocumentItem(
-                context,
-                'Plan de masse',
-                mission.docPlanMasse,
-                Icons.map_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Plan de masse',
+              mission.docPlanMasse,
+              Icons.map_outlined,
+              'doc_plan_masse',
+            ),
             
-            if (mission.docPlansArchitecturaux != null)
-              _buildDocumentItem(
-                context,
-                'Plans architecturaux',
-                mission.docPlansArchitecturaux,
-                Icons.architecture_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Plans architecturaux',
+              mission.docPlansArchitecturaux,
+              Icons.architecture_outlined,
+              'doc_plans_architecturaux',
+            ),
             
-            if (mission.docDeclarationsCe != null)
-              _buildDocumentItem(
-                context,
-                'Déclarations CE',
-                mission.docDeclarationsCe,
-                Icons.assignment_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Déclarations CE',
+              mission.docDeclarationsCe,
+              Icons.assignment_outlined,
+              'doc_declarations_ce',
+            ),
             
-            if (mission.docListeInstallations != null)
-              _buildDocumentItem(
-                context,
-                'Liste des installations',
-                mission.docListeInstallations,
-                Icons.list_alt_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Liste des installations',
+              mission.docListeInstallations,
+              Icons.list_alt_outlined,
+              'doc_liste_installations',
+            ),
             
-            if (mission.docPlanLocauxRisques != null)
-              _buildDocumentItem(
-                context,
-                'Plan locaux à risques',
-                mission.docPlanLocauxRisques,
-                Icons.warning_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Plan locaux à risques',
+              mission.docPlanLocauxRisques,
+              Icons.warning_outlined,
+              'doc_plan_locaux_risques',
+            ),
             
-            if (mission.docRapportAnalyseFoudre != null)
-              _buildDocumentItem(
-                context,
-                'Rapport analyse foudre',
-                mission.docRapportAnalyseFoudre,
-                Icons.analytics_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Rapport analyse foudre',
+              mission.docRapportAnalyseFoudre,
+              Icons.analytics_outlined,
+              'doc_rapport_analyse_foudre',
+            ),
             
-            if (mission.docRapportEtudeFoudre != null)
-              _buildDocumentItem(
-                context,
-                'Rapport étude foudre',
-                mission.docRapportEtudeFoudre,
-                Icons.analytics_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Rapport étude foudre',
+              mission.docRapportEtudeFoudre,
+              Icons.analytics_outlined,
+              'doc_rapport_etude_foudre',
+            ),
             
-            if (mission.docRegistreSecurite != null)
-              _buildDocumentItem(
-                context,
-                'Registre de sécurité',
-                mission.docRegistreSecurite,
-                Icons.security_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Registre de sécurité',
+              mission.docRegistreSecurite,
+              Icons.security_outlined,
+              'doc_registre_securite',
+            ),
             
-            if (mission.docRapportDerniereVerif != null)
-              _buildDocumentItem(
-                context,
-                'Rapport dernière vérification',
-                mission.docRapportDerniereVerif,
-                Icons.history_outlined,
-              ),
+            _buildDocumentItem(
+              context,
+              'Rapport dernière vérification',
+              mission.docRapportDerniereVerif,
+              Icons.history_outlined,
+              'doc_rapport_derniere_verif',
+            ),
+             _buildDocumentItem(
+              context,
+              'Autre Document',
+              mission.docAutre,
+              Icons.outbox_sharp,
+              'doc_autre',
+            ),
           ],
         ),
       ),

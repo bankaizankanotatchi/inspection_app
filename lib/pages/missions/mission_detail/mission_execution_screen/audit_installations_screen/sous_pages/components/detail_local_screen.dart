@@ -1,0 +1,1467 @@
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/observation_screen.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/qr_scan_coffret_screen.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:inspec_app/models/audit_installations_electriques.dart';
+import 'package:inspec_app/models/mission.dart';
+import 'package:inspec_app/constants/app_theme.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/ajouter_coffret_screen.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/ajouter_local_screen.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/detail_coffret_screen.dart';
+import 'package:inspec_app/services/hive_service.dart';
+import 'dart:io';
+
+class DetailLocalScreen extends StatefulWidget {
+  final Mission mission;
+  final bool isMoyenneTension;
+  final int localIndex;
+  final dynamic local; // MoyenneTensionLocal ou BasseTensionLocal
+  final int? zoneIndex;
+  final bool isInZone;
+
+  const DetailLocalScreen({
+    super.key,
+    required this.mission,
+    required this.isMoyenneTension,
+    required this.localIndex,
+    required this.local,
+    this.zoneIndex,
+    this.isInZone = false,
+  });
+
+  @override
+  State<DetailLocalScreen> createState() => _DetailLocalScreenState();
+}
+
+class _DetailLocalScreenState extends State<DetailLocalScreen> {
+  late dynamic _local;
+  final ImagePicker _picker = ImagePicker();
+  List<String> _localPhotos = [];
+  bool _isLoadingLocalPhotos = false;
+  
+  // Pour les nouvelles observations
+  final _nouvelleObservationController = TextEditingController();
+  List<String> _photosPourNouvelleObservation = [];
+  bool _isLoadingObservationPhotos = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _local = widget.local;
+    _chargerPhotosLocal();
+  }
+
+  void _chargerPhotosLocal() {
+    if (_local.photos.isNotEmpty) {
+      setState(() {
+        _localPhotos = List.from(_local.photos);
+      });
+    }
+  }
+
+  // ===== MÉTHODES POUR GESTION DES PHOTOS DU LOCAL =====
+
+  Future<void> _prendrePhotoLocal() async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      
+      if (photo != null) {
+        setState(() => _isLoadingLocalPhotos = true);
+        
+        final savedPath = await _savePhotoToAppDirectory(File(photo.path), 'locaux');
+        
+        setState(() {
+          _localPhotos.add(savedPath);
+          _local.photos = _localPhotos;
+        });
+        
+        await _sauvegarderLocal();
+        _showSuccess('Photo ajoutée au local');
+      }
+    } catch (e) {
+      _showError('Erreur lors de la prise de photo: $e');
+    } finally {
+      setState(() => _isLoadingLocalPhotos = false);
+    }
+  }
+
+  Future<void> _choisirPhotoLocalDepuisGalerie() async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      
+      if (photo != null) {
+        setState(() => _isLoadingLocalPhotos = true);
+        
+        final savedPath = await _savePhotoToAppDirectory(File(photo.path), 'locaux');
+        
+        setState(() {
+          _localPhotos.add(savedPath);
+          _local.photos = _localPhotos;
+        });
+        
+        await _sauvegarderLocal();
+        _showSuccess('Photo ajoutée depuis la galerie');
+      }
+    } catch (e) {
+      _showError('Erreur lors de la sélection: $e');
+    } finally {
+      setState(() => _isLoadingLocalPhotos = false);
+    }
+  }
+
+  Future<String> _savePhotoToAppDirectory(File photoFile, String subDir) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final photosDir = Directory('${appDir.path}/audit_photos/$subDir');
+    
+    if (!await photosDir.exists()) {
+      await photosDir.create(recursive: true);
+    }
+    
+    final fileName = '${subDir}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final newPath = '${photosDir.path}/$fileName';
+    
+    await photoFile.copy(newPath);
+    return newPath;
+  }
+
+  void _previsualiserPhoto(List<String> photos, int index) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.all(20),
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  File(photos[index]),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: Icon(Icons.delete, color: Colors.white),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _supprimerPhoto(photos, index);
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _supprimerPhoto(List<String> photos, int index) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Supprimer la photo'),
+        content: Text('Êtes-vous sûr de vouloir supprimer cette photo ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              try {
+                // Supprimer le fichier physique
+                final file = File(photos[index]);
+                if (await file.exists()) {
+                  await file.delete();
+                }
+                
+                // Mettre à jour la liste
+                setState(() {
+                  photos.removeAt(index);
+                  
+                  // Si c'est une photo du local, mettre à jour le local
+                  if (photos == _localPhotos) {
+                    _local.photos = _localPhotos;
+                  }
+                });
+                
+                // Sauvegarder si c'est une photo du local
+                if (photos == _localPhotos) {
+                  await _sauvegarderLocal();
+                }
+                
+                _showSuccess('Photo supprimée');
+              } catch (e) {
+                _showError('Erreur lors de la suppression: $e');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotosSection(String title, List<String> photos, Function prendrePhoto, Function choisirPhoto, {bool isLoading = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.darkBlue,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
+
+        if (isLoading)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (photos.isEmpty)
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.photo_camera_outlined,
+                    size: 48,
+                    color: Colors.grey.shade400,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Aucune photo',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: photos.length,
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onTap: () => _previsualiserPhoto(photos, index),
+                child: Stack(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(photos[index]),
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey.shade200,
+                              child: Center(
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => _supprimerPhoto(photos, index),
+                        child: Container(
+                          padding: EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.8),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+        SizedBox(height: 16),
+
+        Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => prendrePhoto(),
+                icon: Icon(Icons.camera_alt, size: 20),
+                label: Text('Prendre une photo'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+
+            SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => choisirPhoto(),
+                icon: Icon(Icons.photo_library, size: 20),
+                label: Text('Galerie'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade800,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotosTab() {
+    return Padding(
+      padding: EdgeInsets.only(top:16,left: 16,right: 16,bottom: 72),
+      child: _buildPhotosSection(
+        'Photos du local',
+        _localPhotos,
+        _prendrePhotoLocal,
+        _choisirPhotoLocalDepuisGalerie,
+        isLoading: _isLoadingLocalPhotos,
+      ),
+    );
+  }
+
+  // ===== MÉTHODES POUR GESTION DES OBSERVATIONS =====
+
+  // Méthode pour ajouter une photo à une observation
+  Future<void> _ajouterPhotoAObservation(List<String> photosList) async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      
+      if (photo != null) {
+        final savedPath = await _savePhotoToAppDirectory(File(photo.path), 'observations_locaux');
+        setState(() {
+          photosList.add(savedPath);
+        });
+      }
+    } catch (e) {
+      _showError('Erreur lors de la prise de photo: $e');
+    }
+  }
+
+  Future<void> _choisirPhotoObservationDepuisGalerie(List<String> photosList) async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      
+      if (photo != null) {
+        final savedPath = await _savePhotoToAppDirectory(File(photo.path), 'observations_locaux');
+        setState(() {
+          photosList.add(savedPath);
+        });
+      }
+    } catch (e) {
+      _showError('Erreur lors de la sélection: $e');
+    }
+  }
+
+void _ajouterObservation() async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ObservationScreen(
+        title: 'Nouvelle observation',
+        onSave: (ObservationLibre observation) async {
+          setState(() {
+            _local.observationsLibres.add(observation);
+          });
+          await _sauvegarderLocal();
+          _showSuccess('Observation ajoutée');
+        },
+      ),
+    ),
+  );
+  
+  // Rafraîchir après retour
+  _rechargerLocal();
+}
+
+void _editerObservation(int index) async {
+  final observation = _local.observationsLibres[index];
+  
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ObservationScreen(
+        observation: observation,
+        title: 'Modifier l\'observation',
+        onSave: (ObservationLibre updatedObservation) async {
+          setState(() {
+            _local.observationsLibres[index] = updatedObservation;
+          });
+          await _sauvegarderLocal();
+          _showSuccess('Observation modifiée');
+        },
+      ),
+    ),
+  );
+  
+  // Rafraîchir après retour
+  _rechargerLocal();
+}
+  void _supprimerObservation(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirmer la suppression'),
+        content: Text('Voulez-vous vraiment supprimer cette observation ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              // Supprimer les fichiers photos associés
+              final observation = _local.observationsLibres[index];
+              for (var photoPath in observation.photos) {
+                try {
+                  final file = File(photoPath);
+                  if (await file.exists()) {
+                    await file.delete();
+                  }
+                } catch (e) {
+                  print('Erreur suppression photo: $e');
+                }
+              }
+              
+              setState(() {
+                _local.observationsLibres.removeAt(index);
+              });
+              
+              await _sauvegarderLocal();
+              _showSuccess('Observation supprimée');
+            },
+            child: Text('Supprimer', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObservationCard(ObservationLibre observation, int index) {
+    return Card(
+      margin: EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    observation.texte,
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.edit, color: AppTheme.primaryBlue),
+                      onPressed: () => _editerObservation(index),
+                      tooltip: 'Modifier',
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => _supprimerObservation(index),
+                      tooltip: 'Supprimer',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            
+            SizedBox(height: 4),
+            Text(
+              '${_formatDate(observation.dateCreation)}',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            
+            if (observation.photos.isNotEmpty) ...[
+              SizedBox(height: 8),
+              Text(
+                'Photos associées (${observation.photos.length})',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              SizedBox(height: 4),
+              SizedBox(
+                height: 80,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: observation.photos.length,
+                  itemBuilder: (context, photoIndex) {
+                    return GestureDetector(
+                      onTap: () => _previsualiserPhoto(observation.photos, photoIndex),
+                      child: Container(
+                        width: 80,
+                        margin: EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.file(
+                            File(observation.photos[photoIndex]),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey.shade200,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildObservationsTab() {
+    final observations = _local.observationsLibres;
+    
+    return Padding(
+     padding: EdgeInsets.only(top:16,left: 16,right: 16,bottom: 72),
+      child: Column(
+        children: [
+          if (observations.isNotEmpty) ...[
+            Expanded(
+              child: ListView.builder(
+                itemCount: observations.length,
+                itemBuilder: (context, index) {
+                  return _buildObservationCard(observations[index], index);
+                },
+              ),
+            ),
+          ] else ...[
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.comment_outlined,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Aucune observation',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Ajoutez vos observations pour documenter ce local',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _ajouterObservation,
+            icon: Icon(Icons.add_comment),
+            label: Text('Ajouter une observation'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: Colors.white,
+              minimumSize: Size(double.infinity, 48),
+            ),
+          ),
+          SizedBox(height: 64),
+        ],
+      ),
+    );
+  }
+
+  // ===== FIN MÉTHODES OBSERVATIONS =====
+
+  void _ajouterCoffret() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QrScanCoffretScreen(
+          mission: widget.mission,
+          parentType: 'local',
+          parentIndex: widget.localIndex,
+          isMoyenneTension: widget.isMoyenneTension,
+          zoneIndex: widget.zoneIndex,
+          isInZone: widget.isInZone,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      _rechargerLocal();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Coffret ajouté avec succès')),
+      );
+    }
+  }
+
+  void _editerLocal() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AjouterLocalScreen(
+          mission: widget.mission,
+          isMoyenneTension: widget.isMoyenneTension,
+          local: _local,
+          localIndex: widget.localIndex,
+          zoneIndex: widget.zoneIndex,
+          isInZone: widget.isInZone,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      _rechargerLocal();
+    }
+  }
+
+  void _rechargerLocal() async {
+    try {
+      final audit = await HiveService.getOrCreateAuditInstallations(widget.mission.id);
+      
+      setState(() {
+        if (widget.isMoyenneTension) {
+          if (widget.isInZone && widget.zoneIndex != null) {
+            // Local dans une zone MT
+            if (widget.zoneIndex! < audit.moyenneTensionZones.length) {
+              final zone = audit.moyenneTensionZones[widget.zoneIndex!];
+              if (widget.localIndex < zone.locaux.length) {
+                _local = zone.locaux[widget.localIndex];
+              }
+            }
+          } else {
+            // Local MT indépendant
+            if (widget.localIndex < audit.moyenneTensionLocaux.length) {
+              _local = audit.moyenneTensionLocaux[widget.localIndex];
+            }
+          }
+        } else {
+          // Pour basse tension (toujours dans une zone)
+          if (widget.zoneIndex != null && widget.zoneIndex! < audit.basseTensionZones.length) {
+            final zone = audit.basseTensionZones[widget.zoneIndex!];
+            if (widget.localIndex < zone.locaux.length) {
+              _local = zone.locaux[widget.localIndex];
+            }
+          }
+        }
+        _chargerPhotosLocal();
+      });
+    } catch (e) {
+      print('❌ Erreur rechargerLocal: $e');
+    }
+  }
+
+  void _voirCoffret(int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailCoffretScreen(
+          mission: widget.mission,
+          isMoyenneTension: widget.isMoyenneTension,
+          parentType: 'local',
+          parentIndex: widget.localIndex,
+          coffretIndex: index,
+          coffret: _local.coffrets[index],
+          zoneIndex: widget.zoneIndex,
+          isInZone: widget.isInZone,
+        ),
+      ),
+    ).then((_) => _rechargerLocal());
+  }
+
+  void _editerCoffret(int index) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AjouterCoffretScreen(
+          mission: widget.mission,
+          parentType: 'local',
+          parentIndex: widget.localIndex,
+          isMoyenneTension: widget.isMoyenneTension,
+          zoneIndex: widget.zoneIndex,
+          isInZone: widget.isInZone,
+          coffret: _local.coffrets[index],
+          coffretIndex: index,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      _rechargerLocal();
+    }
+  }
+
+  void _supprimerCoffret(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirmer la suppression'),
+        content: Text('Voulez-vous vraiment supprimer ce coffret ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() {
+                _local.coffrets.removeAt(index);
+              });
+              await _sauvegarderLocal();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Coffret supprimé')),
+              );
+            },
+            child: Text('Supprimer', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sauvegarderLocal() async {
+    try {
+      final audit = await HiveService.getOrCreateAuditInstallations(widget.mission.id);
+      
+      if (widget.isMoyenneTension) {
+        if (widget.isInZone && widget.zoneIndex != null) {
+          // Local dans une zone MT
+          if (widget.zoneIndex! < audit.moyenneTensionZones.length) {
+            final zone = audit.moyenneTensionZones[widget.zoneIndex!];
+            if (widget.localIndex < zone.locaux.length) {
+              zone.locaux[widget.localIndex] = _local;
+            }
+          }
+        } else {
+          // Local MT indépendant
+          if (widget.localIndex < audit.moyenneTensionLocaux.length) {
+            audit.moyenneTensionLocaux[widget.localIndex] = _local;
+          }
+        }
+      } else {
+        // Pour basse tension (toujours dans une zone)
+        if (widget.zoneIndex != null && widget.zoneIndex! < audit.basseTensionZones.length) {
+          final zone = audit.basseTensionZones[widget.zoneIndex!];
+          if (widget.localIndex < zone.locaux.length) {
+            zone.locaux[widget.localIndex] = _local;
+          }
+        }
+      }
+      
+      await HiveService.saveAuditInstallations(audit);
+    } catch (e) {
+      print('❌ Erreur sauvegarderLocal: $e');
+      throw e;
+    }
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, List<ElementControle> elements) {
+    final conformiteCount = elements.where((e) => e.conforme).length;
+    final totalCount = elements.length;
+    final pourcentage = totalCount > 0 ? (conformiteCount / totalCount * 100).round() : 0;
+
+    return Card(
+      margin: EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getProgressColor(pourcentage).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _getProgressColor(pourcentage)),
+                  ),
+                  child: Text(
+                    '$pourcentage%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _getProgressColor(pourcentage),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            ...elements.map((element) => _buildElementItem(element)).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+Widget _buildElementItem(ElementControle element) {
+  return Container(
+    margin: EdgeInsets.only(bottom: 8),
+    padding: EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade50,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: element.conforme ? Colors.green.shade200 : Colors.red.shade200,
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                element.elementControle,
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+            SizedBox(width: 8),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: element.conforme ? Colors.green.shade100 : Colors.red.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                element.conforme ? 'OUI' : 'NON',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: element.conforme ? Colors.green : Colors.red,
+                ),
+              ),
+            ),
+            if (element.priorite != null) ...[
+              SizedBox(width: 8),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _getPrioriteColor(element.priorite!).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: _getPrioriteColor(element.priorite!)),
+                ),
+                child: Text(
+                  'N${element.priorite}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: _getPrioriteColor(element.priorite!),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        
+        // Observation
+        if (element.observation != null && element.observation!.isNotEmpty) ...[
+          SizedBox(height: 8),
+          Text(
+            'Observation: ${element.observation}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.black,
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.bold
+            ),
+          ),
+        ],
+        
+        // Photos (uniquement si l'élément n'est pas conforme)
+        if (element.photos.isNotEmpty) ...[
+          SizedBox(height: 8),
+          Text(
+            "Photos de l'observation(${element.photos.length}):",
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color:element.conforme ? Colors.green : Colors.red,
+            ),
+          ),
+          SizedBox(height: 4),
+          Container(
+            height: 60,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: element.photos.length,
+              itemBuilder: (context, photoIndex) {
+                return GestureDetector(
+                  onTap: () => _previsualiserPhoto(element.photos, photoIndex),
+                  child: Container(
+                    width: 60,
+                    margin: EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.red.shade300),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.file(
+                        File(element.photos[photoIndex]),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.shade200,
+                            child: Center(
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.grey.shade400,
+                                size: 20,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+  Widget _buildCoffretCard(CoffretArmoire coffret, int index) {
+    final pointsConformes = coffret.pointsVerification.where((p) => p.conformite == 'oui').length;
+    final totalPoints = coffret.pointsVerification.length;
+    final pourcentage = totalPoints > 0 ? (pointsConformes / totalPoints * 100).round() : 0;
+
+    return  Container(
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.grey
+        ),
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppTheme.primaryBlue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.electrical_services, color: AppTheme.primaryBlue),
+        ),
+        title: Text(
+          coffret.nom,
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 4),
+            Text(coffret.type),
+            SizedBox(height: 4),
+            if (totalPoints > 0) ...[
+              LinearProgressIndicator(
+                value: pointsConformes / totalPoints,
+                backgroundColor: Colors.grey.shade200,
+                color: _getProgressColor(pourcentage),
+              ),
+              SizedBox(height: 4),
+              Text('$pourcentage% conforme ($pointsConformes/$totalPoints)'),
+            ],
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'view') _voirCoffret(index);
+            if (value == 'edit') _editerCoffret(index);
+            if (value == 'delete') _supprimerCoffret(index);
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(value: 'view', child: Text('Voir détails')),
+            PopupMenuItem(value: 'edit', child: Text('Éditer')),
+            PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: Colors.red))),
+          ],
+        ),
+        onTap: () => _voirCoffret(index),
+      ),
+    );
+  }
+
+  Color _getProgressColor(int pourcentage) {
+    if (pourcentage >= 80) return Colors.green;
+    if (pourcentage >= 50) return Colors.orange;
+    return Colors.red;
+  }
+
+  Color _getPrioriteColor(int priorite) {
+    switch (priorite) {
+      case 1: return Colors.blue;
+      case 2: return Colors.orange;
+      case 3: return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value.isNotEmpty ? value : 'Non renseigné',
+              style: TextStyle(
+                color: value.isNotEmpty ? Colors.black87 : Colors.grey,
+              ),
+            ),
+          ),
+        ],
+      )
+    );
+  }
+
+  Widget _buildLocalStats() {
+    // Calculer le nombre total de photos (local + toutes les observations)
+    int totalPhotos = _localPhotos.length;
+    for (var observation in _local.observationsLibres) {
+      totalPhotos += observation.photos.length as int;
+    }
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildZoneStat('Coffrets', _local.coffrets.length),
+          _buildZoneStat('Photos', totalPhotos),
+          _buildZoneStat('Observations', _local.observationsLibres.length),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZoneStat(String title, int count) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryBlue,
+          ),
+        ),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTransformateur = _local.type == 'LOCAL_TRANSFORMATEUR';
+    final tabCount = isTransformateur ? 6 : 4;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_local.nom),
+        backgroundColor: widget.isMoyenneTension ? Colors.blue : Colors.blue,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.edit),
+            onPressed: _editerLocal,
+            tooltip: 'Modifier le local',
+          ),
+          IconButton(
+            icon: Icon(Icons.add),
+            onPressed: _ajouterCoffret,
+            tooltip: 'Ajouter un coffret',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _buildLocalStats(),
+          Expanded(
+            child: DefaultTabController(
+              length: tabCount,
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.white,
+                    child: TabBar(
+                      labelColor: widget.isMoyenneTension ? Colors.blue : Colors.blue,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: widget.isMoyenneTension ? Colors.blue : Colors.blue,
+                      isScrollable: true,
+                      tabs: [
+                        Tab(text: 'OBSERVATIONS (${_local.observationsLibres.length})'),
+                        Tab(text: 'PHOTOS (${_localPhotos.length})'),
+                        Tab(text: 'VÉRIFICATIONS'),
+                        if (isTransformateur) Tab(text: 'CELLULE'),
+                        if (isTransformateur) Tab(text: 'TRANSFORMATEUR'),
+                        Tab(text: 'COFFRETS (${_local.coffrets.length})'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        // Tab OBSERVATIONS
+                        _buildObservationsTab(),
+                        
+                        // Tab PHOTOS
+                        _buildPhotosTab(),
+
+                        // Tab VÉRIFICATIONS
+                        ListView(
+                          padding: EdgeInsets.only(top:16,left: 16,right: 16,bottom: 72),
+                          children: [
+                            _buildSection('DISPOSITIONS CONSTRUCTIVES', _local.dispositionsConstructives),
+                            _buildSection('CONDITIONS D\'EXPLOITATION', _local.conditionsExploitation),
+                          ],
+                        ),
+
+                        // Tab CELLULE (si transformateur)
+                        if (isTransformateur)
+                          _local.cellule != null
+                              ? ListView(
+                                  padding: EdgeInsets.only(top:16,left: 16,right: 16,bottom: 72),
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'INFORMATIONS CELLULE',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppTheme.primaryBlue,
+                                              ),
+                                            ),
+                                            SizedBox(height: 12),
+                                            _buildInfoRow('Fonction', _local.cellule.fonction),
+                                            _buildInfoRow('Type', _local.cellule.type),
+                                            _buildInfoRow('Marque/Modèle/Année', _local.cellule.marqueModeleAnnee),
+                                            _buildInfoRow('Tension assignée', _local.cellule.tensionAssignee),
+                                            _buildInfoRow('Pouvoir de coupure', _local.cellule.pouvoirCoupure),
+                                            _buildInfoRow('Numérotation', _local.cellule.numerotation),
+                                            _buildInfoRow('Parafoudres', _local.cellule.parafoudres),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: 16),
+                                    _buildSection('ÉLÉMENTS VÉRIFIÉS - CELLULE', _local.cellule.elementsVerifies),
+                                  ],
+                                )
+                              : Center(child: Text('Aucune information cellule')),
+
+                        // Tab TRANSFORMATEUR (si transformateur)
+                        if (isTransformateur)
+                          _local.transformateur != null
+                              ? ListView(
+                                  padding: EdgeInsets.only(top:16,left: 16,right: 16,bottom: 72),
+                                  children: [
+                                     Container(
+                                      padding: EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'INFORMATIONS TRANSFORMATEUR',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppTheme.primaryBlue,
+                                              ),
+                                            ),
+                                            SizedBox(height: 12),
+                                            _buildInfoRow('Type', _local.transformateur.typeTransformateur),
+                                            _buildInfoRow('Marque/Année', _local.transformateur.marqueAnnee),
+                                            _buildInfoRow('Puissance assignée', _local.transformateur.puissanceAssignee),
+                                            _buildInfoRow('Tension primaire/secondaire', _local.transformateur.tensionPrimaireSecondaire),
+                                            _buildInfoRow('Relais Buchholz', _local.transformateur.relaisBuchholz),
+                                            _buildInfoRow('Type refroidissement', _local.transformateur.typeRefroidissement),
+                                            _buildInfoRow('Régime neutre', _local.transformateur.regimeNeutre),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: 16),
+                                    _buildSection('ÉLÉMENTS VÉRIFIÉS - TRANSFORMATEUR', _local.transformateur.elementsVerifies),
+                                  ],
+                                )
+                              : Center(child: Text('Aucune information transformateur')),
+
+                        // Tab COFFRETS
+                        _local.coffrets.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.electrical_services_outlined, size: 64, color: Colors.grey.shade400),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Aucun coffret ajouté',
+                                      style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                                    ),
+                                    SizedBox(height: 8),
+                                    ElevatedButton.icon(
+                                      onPressed: _ajouterCoffret,
+                                      icon: Icon(Icons.add),
+                                      label: Text('AJOUTER UN COFFRET'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primaryBlue,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: EdgeInsets.only(top:16,left: 16,right: 16,bottom: 72),
+                                itemCount: _local.coffrets.length,
+                                itemBuilder: (context, index) {
+                                  return _buildCoffretCard(_local.coffrets[index], index);
+                                },
+                              ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: _local.coffrets.isEmpty
+          ? FloatingActionButton(
+              onPressed: _ajouterCoffret,
+              backgroundColor: AppTheme.primaryBlue,
+              child: Icon(Icons.add, color: Colors.white),
+            )
+          : null,
+    );
+  }
+
+  @override
+  void dispose() {
+    _nouvelleObservationController.dispose();
+    super.dispose();
+  }
+}

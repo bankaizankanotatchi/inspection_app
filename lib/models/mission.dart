@@ -1,3 +1,4 @@
+// mission.dart
 import 'package:hive/hive.dart';
 
 part 'mission.g.dart';
@@ -44,40 +45,40 @@ class Mission extends HiveObject {
   int? dureeMissionJours;
 
   @HiveField(13)
-  String? docCahierPrescriptions;
+  bool docCahierPrescriptions;
 
   @HiveField(14)
-  String? docNotesCalculs;
+  bool docNotesCalculs;
 
   @HiveField(15)
-  String? docSchemasUnifilaires;
+  bool docSchemasUnifilaires;
 
   @HiveField(16)
-  String? docPlanMasse;
+  bool docPlanMasse;
 
   @HiveField(17)
-  String? docPlansArchitecturaux;
+  bool docPlansArchitecturaux;
 
   @HiveField(18)
-  String? docDeclarationsCe;
+  bool docDeclarationsCe;
 
   @HiveField(19)
-  String? docListeInstallations;
+  bool docListeInstallations;
 
   @HiveField(20)
-  String? docPlanLocauxRisques;
+  bool docPlanLocauxRisques;
 
   @HiveField(21)
-  String? docRapportAnalyseFoudre;
+  bool docRapportAnalyseFoudre;
 
   @HiveField(22)
-  String? docRapportEtudeFoudre;
+  bool docRapportEtudeFoudre;
 
   @HiveField(23)
-  String? docRegistreSecurite;
+  bool docRegistreSecurite;
 
   @HiveField(24)
-  String? docRapportDerniereVerif;
+  bool docRapportDerniereVerif;
 
   @HiveField(25)
   DateTime createdAt;
@@ -87,6 +88,24 @@ class Mission extends HiveObject {
 
   @HiveField(27)
   String status;
+
+  @HiveField(28)
+  String? descriptionInstallationsId;
+
+  @HiveField(29)
+  String? auditInstallationsElectriquesId;
+
+  @HiveField(30)
+  bool docAutre;
+
+  @HiveField(31)
+  String? classementLocauxId;
+
+  @HiveField(32)
+  List<String>? foudreIds;
+
+  @HiveField(33)
+  String? mesuresEssaisId; 
 
   Mission({
     required this.id,
@@ -102,21 +121,27 @@ class Mission extends HiveObject {
     this.natureMission,
     this.periodicite,
     this.dureeMissionJours,
-    this.docCahierPrescriptions,
-    this.docNotesCalculs,
-    this.docSchemasUnifilaires,
-    this.docPlanMasse,
-    this.docPlansArchitecturaux,
-    this.docDeclarationsCe,
-    this.docListeInstallations,
-    this.docPlanLocauxRisques,
-    this.docRapportAnalyseFoudre,
-    this.docRapportEtudeFoudre,
-    this.docRegistreSecurite,
-    this.docRapportDerniereVerif,
+    this.docCahierPrescriptions = false,
+    this.docNotesCalculs = false,
+    this.docSchemasUnifilaires = false,
+    this.docPlanMasse = false,
+    this.docPlansArchitecturaux = false,
+    this.docDeclarationsCe = false,
+    this.docListeInstallations = false,
+    this.docPlanLocauxRisques = false,
+    this.docRapportAnalyseFoudre = false,
+    this.docRapportEtudeFoudre = false,
+    this.docRegistreSecurite = false,
+    this.docRapportDerniereVerif = false,
     required this.createdAt,
     required this.updatedAt,
-    required this.status, // Ajouté dans le constructeur
+    required this.status,
+    this.descriptionInstallationsId,
+    this.auditInstallationsElectriquesId,
+    this.docAutre = false,
+    this.classementLocauxId,
+    this.foudreIds, 
+    this.mesuresEssaisId,
   });
 
   factory Mission.fromJson(Map<String, dynamic> json) {
@@ -143,18 +168,18 @@ class Mission extends HiveObject {
       natureMission: json['nature_mission'],
       periodicite: json['periodicite'],
       dureeMissionJours: json['duree_mission_jours'],
-      docCahierPrescriptions: json['doc_cahier_prescriptions'],
-      docNotesCalculs: json['doc_notes_calculs'],
-      docSchemasUnifilaires: json['doc_schemas_unifilaires'],
-      docPlanMasse: json['doc_plan_masse'],
-      docPlansArchitecturaux: json['doc_plans_architecturaux'],
-      docDeclarationsCe: json['doc_declarations_ce'],
-      docListeInstallations: json['doc_liste_installations'],
-      docPlanLocauxRisques: json['doc_plan_locaux_risques'],
-      docRapportAnalyseFoudre: json['doc_rapport_analyse_foudre'],
-      docRapportEtudeFoudre: json['doc_rapport_etude_foudre'],
-      docRegistreSecurite: json['doc_registre_securite'],
-      docRapportDerniereVerif: json['doc_rapport_derniere_verif'],
+      docCahierPrescriptions: json['doc_cahier_prescriptions'] ?? false,
+      docNotesCalculs: json['doc_notes_calculs'] ?? false,
+      docSchemasUnifilaires: json['doc_schemas_unifilaires'] ?? false,
+      docPlanMasse: json['doc_plan_masse'] ?? false,
+      docPlansArchitecturaux: json['doc_plans_architecturaux'] ?? false,
+      docDeclarationsCe: json['doc_declarations_ce'] ?? false,
+      docListeInstallations: json['doc_liste_installations'] ?? false,
+      docPlanLocauxRisques: json['doc_plan_locaux_risques'] ?? false,
+      docRapportAnalyseFoudre: json['doc_rapport_analyse_foudre'] ?? false,
+      docRapportEtudeFoudre: json['doc_rapport_etude_foudre'] ?? false,
+      docRegistreSecurite: json['doc_registre_securite'] ?? false,
+      docRapportDerniereVerif: json['doc_rapport_derniere_verif'] ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
@@ -162,6 +187,14 @@ class Mission extends HiveObject {
           ? DateTime.parse(json['updated_at'])
           : DateTime.now(),
       status: json['status'] ?? 'active',
+      descriptionInstallationsId: json['description_installations_id'],
+      auditInstallationsElectriquesId: json['audit_installations_electriques_id'],
+      docAutre: json['doc_autre'] ?? false,
+      classementLocauxId: json['classement_locaux_id'],
+      foudreIds: json['foudre_ids'] != null
+          ? List<String>.from(json['foudre_ids'])
+          : null,
+      mesuresEssaisId: json['mesures_essais_id'],
     );
   }
 
@@ -194,7 +227,13 @@ class Mission extends HiveObject {
       'doc_rapport_derniere_verif': docRapportDerniereVerif,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'status': status, 
+      'status': status,
+      'description_installations_id': descriptionInstallationsId,
+      'audit_installations_electriques_id': auditInstallationsElectriquesId,
+      'doc_autre': docAutre,
+      'classement_locaux_id': classementLocauxId,
+      'foudre_ids': foudreIds,
+      'mesures_essais_id': mesuresEssaisId,
     };
   }
 }

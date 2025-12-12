@@ -32,28 +32,34 @@ class MissionAdapter extends TypeAdapter<Mission> {
       natureMission: fields[10] as String?,
       periodicite: fields[11] as String?,
       dureeMissionJours: fields[12] as int?,
-      docCahierPrescriptions: fields[13] as String?,
-      docNotesCalculs: fields[14] as String?,
-      docSchemasUnifilaires: fields[15] as String?,
-      docPlanMasse: fields[16] as String?,
-      docPlansArchitecturaux: fields[17] as String?,
-      docDeclarationsCe: fields[18] as String?,
-      docListeInstallations: fields[19] as String?,
-      docPlanLocauxRisques: fields[20] as String?,
-      docRapportAnalyseFoudre: fields[21] as String?,
-      docRapportEtudeFoudre: fields[22] as String?,
-      docRegistreSecurite: fields[23] as String?,
-      docRapportDerniereVerif: fields[24] as String?,
+      docCahierPrescriptions: fields[13] as bool,
+      docNotesCalculs: fields[14] as bool,
+      docSchemasUnifilaires: fields[15] as bool,
+      docPlanMasse: fields[16] as bool,
+      docPlansArchitecturaux: fields[17] as bool,
+      docDeclarationsCe: fields[18] as bool,
+      docListeInstallations: fields[19] as bool,
+      docPlanLocauxRisques: fields[20] as bool,
+      docRapportAnalyseFoudre: fields[21] as bool,
+      docRapportEtudeFoudre: fields[22] as bool,
+      docRegistreSecurite: fields[23] as bool,
+      docRapportDerniereVerif: fields[24] as bool,
       createdAt: fields[25] as DateTime,
       updatedAt: fields[26] as DateTime,
       status: fields[27] as String,
+      descriptionInstallationsId: fields[28] as String?,
+      auditInstallationsElectriquesId: fields[29] as String?,
+      docAutre: fields[30] as bool,
+      classementLocauxId: fields[31] as String?,
+      foudreIds: (fields[32] as List?)?.cast<String>(),
+      mesuresEssaisId: fields[33] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Mission obj) {
     writer
-      ..writeByte(28)
+      ..writeByte(34)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -109,7 +115,19 @@ class MissionAdapter extends TypeAdapter<Mission> {
       ..writeByte(26)
       ..write(obj.updatedAt)
       ..writeByte(27)
-      ..write(obj.status);
+      ..write(obj.status)
+      ..writeByte(28)
+      ..write(obj.descriptionInstallationsId)
+      ..writeByte(29)
+      ..write(obj.auditInstallationsElectriquesId)
+      ..writeByte(30)
+      ..write(obj.docAutre)
+      ..writeByte(31)
+      ..write(obj.classementLocauxId)
+      ..writeByte(32)
+      ..write(obj.foudreIds)
+      ..writeByte(33)
+      ..write(obj.mesuresEssaisId);
   }
 
   @override

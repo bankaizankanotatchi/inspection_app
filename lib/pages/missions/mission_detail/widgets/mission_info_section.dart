@@ -88,12 +88,12 @@ class MissionInfoSection extends StatelessWidget {
                 Icons.assignment_outlined,
               ),
             
-            if (mission.periodicite != null)
-              _buildInfoItem(
-                'Périodicité',
-                mission.periodicite!,
-                Icons.repeat_outlined,
-              ),
+            // if (mission.periodicite != null)
+            //   _buildInfoItem(
+            //     'Périodicité',
+            //     mission.periodicite!,
+            //     Icons.repeat_outlined,
+            //   ),
             
             if (mission.dureeMissionJours != null)
               _buildInfoItem(
@@ -102,12 +102,12 @@ class MissionInfoSection extends StatelessWidget {
                 Icons.schedule_outlined,
               ),
             
-            if (mission.dgResponsable != null)
-              _buildInfoItem(
-                'DG Responsable',
-                mission.dgResponsable!,
-                Icons.person_outline,
-              ),
+            // if (mission.dgResponsable != null)
+            //   _buildInfoItem(
+            //     'DG Responsable',
+            //     mission.dgResponsable!,
+            //     Icons.person_outline,
+            //   ),
           ],
         ),
       ),

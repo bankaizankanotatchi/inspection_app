@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:inspec_app/models/verificateur.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_detail_screen.dart';
 import '../../../models/mission.dart';
 import '../../../constants/app_theme.dart';
 
 class MissionCard extends StatelessWidget {
   final Mission mission;
+  final Verificateur user;
 
-  const MissionCard({super.key, required this.mission});
+  const MissionCard({super.key, required this.mission, required this.user});
 
   // Méthode pour normaliser le statut (gérer les fautes de frappe)
   String _normalizeStatus(String status) {
@@ -54,9 +56,9 @@ class MissionCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: InkWell(
         onTap: () {
-          Navigator.of(context).push(
+          Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => MissionDetailScreen(mission: mission),
+              builder: (context) => MissionDetailScreen(mission: mission, user: user),
             ),
           );
         },
