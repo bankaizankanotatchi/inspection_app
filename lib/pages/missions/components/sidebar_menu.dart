@@ -90,36 +90,55 @@ class SidebarMenu extends StatelessWidget {
                     const CircleAvatar(
                       radius: 40,
                       backgroundColor: Colors.white,
-                      child: Icon(Icons.person, size: 45, color: AppTheme.primaryBlue),
+                      child: Icon(
+                        Icons.person,
+                        size: 45,
+                        color: AppTheme.primaryBlue,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       user.nom,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                     Text(
                       'Matricule: ${user.matricule}',
-                      style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.9)),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     if (selectedFilter != 'Tous' || searchQuery.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.3),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          selectedFilter != 'Tous' ? 'Filtre: $selectedFilter' : 'Recherche active',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          selectedFilter != 'Tous'
+                              ? 'Filtre: $selectedFilter'
+                              : 'Recherche active',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              
+
               // Navigation items
               const SizedBox(height: 20),
               _buildNavigationItem(
@@ -134,10 +153,10 @@ class SidebarMenu extends StatelessWidget {
                 isSelected: currentPageIndex == 1,
                 onTap: () => onNavigationItemSelected(1),
               ),
-              
+
               // Espace vide
               Expanded(child: Container()),
-              
+
               // Bouton de déconnexion
               Container(
                 width: double.infinity,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:inspec_app/models/audit_installations_electriques.dart';
 import 'package:inspec_app/models/mission.dart';
 import 'package:inspec_app/constants/app_theme.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/classement_locaux_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/ajouter_local_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/ajouter_zone_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/detail_local_screen.dart';
@@ -149,60 +150,87 @@ class _MoyenneTensionScreenState extends State<MoyenneTensionScreen> {
     ).then((_) => _loadAudit());
   }
 
-  void _showAddModal() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Ajouter un élément',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _ajouterLocal();
-                    },
-                    icon: Icon(Icons.domain),
-                    label: Text('Local'),
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 15),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
+void _showAddModal() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(20.0),
+      ),
+    ),
+    builder: (context) => Container(
+      padding: EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bouton pour ajouter un local
+          Container(
+            margin: EdgeInsets.only(bottom: 12),
+            child: ElevatedButton.icon(
+              onPressed: () {
                       Navigator.pop(context);
                       _ajouterZone();
                     },
-                    icon: Icon(Icons.map_outlined),
-                    label: Text('Zone'),
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 15),
-                    ),
-                  ),
+              icon: Icon(Icons.domain, size: 24),
+              label: Text(
+                'Ajouter une zone',
+                style: TextStyle(fontSize: 16),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryBlue,
+                foregroundColor: Colors.white,
+                minimumSize: Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
             ),
-            SizedBox(height: 10),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Annuler'),
+          ),
+          
+          // Bouton pour ajouter un coffret
+          Container(
+            margin: EdgeInsets.only(bottom: 20),
+            child: ElevatedButton.icon(
+               onPressed: () {
+                      Navigator.pop(context);
+                      _ajouterLocal();
+                    },
+              icon: Icon(Icons.domain, size: 24),
+              label: Text(
+                'Ajouter un local',
+                style: TextStyle(fontSize: 16),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                minimumSize: Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
             ),
-          ],
-        ),
+          ),
+          
+          // Bouton pour annuler
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Annuler',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _supprimerLocal(int index) {
     showDialog(

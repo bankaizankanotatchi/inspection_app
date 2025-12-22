@@ -14,6 +14,7 @@ class AjouterLocalScreen extends StatefulWidget {
   final int? localIndex; // Pour l'édition
   final int? zoneIndex; // Pour basse tension ou moyenne tension dans zone
   final bool isInZone; // Nouveau paramètre
+  
 
   const AjouterLocalScreen({
     super.key,
