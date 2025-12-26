@@ -7,7 +7,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onSearchPressed;
   final VoidCallback onSortPressed;
   final int currentPageIndex;
-  final Function(String)? onStatsPeriodSelected; // NOUVEAU : Callback pour les stats
+  final Function(String)? onStatsPeriodSelected; // Callback pour les stats
+  final String lastSyncInfo; // NOUVEAU : Info de dernière synchronisation
 
   const HomeAppBar({
     super.key,
@@ -16,7 +17,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onSearchPressed,
     required this.onSortPressed,
     required this.currentPageIndex,
-    this.onStatsPeriodSelected, // Optionnel pour les stats
+    this.onStatsPeriodSelected,
+    required this.lastSyncInfo, // Requis maintenant
   });
 
   @override
@@ -53,21 +55,41 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // Menu button
             IconButton(
               icon: const Icon(Icons.menu, color: Colors.white),
               onPressed: onMenuPressed,
               tooltip: 'Menu',
             ),
-            SizedBox(
-              child: Text(
-                _getAppBarTitle(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+            
+            // Title
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _getAppBarTitle(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  // Info de synchronisation (seulement sur la page d'accueil)
+                  if (currentPageIndex == 0 && lastSyncInfo.isNotEmpty)
+                    Text(
+                      'Dernière sync: $lastSyncInfo',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                      ),
+                    ),
+                ],
               ),
             ),
+            
+            // Action buttons
             _shouldShowActionButtons()
                 ? PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, color: Colors.white),
@@ -78,6 +100,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                         onSearchPressed();
                       } else if (value == 'sort') {
                         onSortPressed();
+                      } else if (value == 'sync_info') {
+                        _showSyncInfo(context);
                       }
                     },
                     itemBuilder: (context) => [
@@ -108,6 +132,17 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                             Icon(Icons.sort, color: AppTheme.primaryBlue),
                             SizedBox(width: 8),
                             Text('Trier'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem<String>(
+                        value: 'sync_info',
+                        child: Row(
+                          children: [
+                            Icon(Icons.sync, color: AppTheme.primaryBlue),
+                            SizedBox(width: 8),
+                            Text('Info sync: $lastSyncInfo'),
                           ],
                         ),
                       ),
@@ -174,6 +209,22 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showSyncInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Information synchronisation'),
+        content: Text('Dernière synchronisation: $lastSyncInfo'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }

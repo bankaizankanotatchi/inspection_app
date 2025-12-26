@@ -35,37 +35,9 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
     }
   }
 
-  void _ajouterEssai() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AjouterEssaiDeclenchementScreen(
-          mission: widget.mission,
-        ),
-      ),
-    );
 
-    if (result == true) {
-      await _loadEssais();
-    }
-  }
 
-  void _editerEssai(int index) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AjouterEssaiDeclenchementScreen(
-          mission: widget.mission,
-          essai: _essais[index],
-          index: index,
-        ),
-      ),
-    );
 
-    if (result == true) {
-      await _loadEssais();
-    }
-  }
 
   Future<void> _supprimerEssai(int index) async {
     showDialog(
@@ -135,7 +107,7 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
         ),
       ),
       child: InkWell(
-        onTap: () => _editerEssai(index),
+        onTap: () => {},
         child: Padding(
           padding: EdgeInsets.all(12),
           child: Column(
@@ -167,38 +139,7 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
                       ],
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        _editerEssai(index);
-                      } else if (value == 'delete') {
-                        _supprimerEssai(index);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 18, color: AppTheme.primaryBlue),
-                            SizedBox(width: 8),
-                            Text('Modifier'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 18, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Supprimer'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+               ],
               ),
               
               SizedBox(height: 12),
@@ -401,7 +342,7 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
         foregroundColor: Colors.white,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _ajouterEssai,
+        onPressed:(){},
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         child: Icon(Icons.add),
@@ -465,15 +406,21 @@ class AjouterEssaiDeclenchementScreen extends StatefulWidget {
   final Mission mission;
   final EssaiDeclenchementDifferentiel? essai;
   final int? index;
+   final String? localisationPredefinie;
+   final String? coffretPredefini; 
 
   const AjouterEssaiDeclenchementScreen({
     super.key,
     required this.mission,
     this.essai,
     this.index,
+     this.localisationPredefinie, 
+     this.coffretPredefini, 
   });
 
   bool get isEdition => essai != null;
+    bool get aLocalisationPredefinie => localisationPredefinie != null && localisationPredefinie!.isNotEmpty;
+      bool get aCoffretPredefini => coffretPredefini != null && coffretPredefini!.isNotEmpty;
 
   @override
   State<AjouterEssaiDeclenchementScreen> createState() => _AjouterEssaiDeclenchementScreenState();
@@ -495,17 +442,38 @@ class _AjouterEssaiDeclenchementScreenState extends State<AjouterEssaiDeclenchem
   List<String> _localisations = [];
   List<String> _coffrets = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _chargerLocalisations();
-if (widget.isEdition) {
-      _chargerDonneesExistantes();
+@override
+void initState() {
+  super.initState();
+  
+  // Si on a un coffret prédéfini, le mettre directement
+  if (widget.aCoffretPredefini) {
+    _coffretController.text = widget.coffretPredefini!;
+  }
+  
+  _chargerLocalisations();
+  
+  if (widget.isEdition) {
+    _chargerDonneesExistantes();
+  } else {
+    // Gérer la localisation prédéfinie
+    if (widget.aLocalisationPredefinie) {
+      _localisationController.text = widget.localisationPredefinie!;
+      // Charger les coffrets pour cette localisation
+      _coffrets = HiveService.getCoffretsForLocalisation(
+        widget.mission.id, 
+        widget.localisationPredefinie!
+      );
+      
+      // Si on a un coffret prédéfini, s'assurer qu'il est dans la liste
+      if (widget.aCoffretPredefini && !_coffrets.contains(widget.coffretPredefini)) {
+        _coffrets.add(widget.coffretPredefini!);
+      }
     } else {
-      // Initialiser avec une valeur par défaut
       _localisationController.text = _localisations.isNotEmpty ? _localisations.first : '';
     }
   }
+}
 
   void _chargerLocalisations() {
     _localisations = HiveService.getLocalisationsForEssais(widget.mission.id);
@@ -556,6 +524,68 @@ if (widget.isEdition) {
       _observationController.text = essai.observation!;
     }
   }
+
+  Widget _buildCoffretField() {
+  if (widget.aCoffretPredefini) {
+    // Afficher un champ texte non modifiable pour le coffret
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Coffret',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          SizedBox(height: 4),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.electrical_services, size: 20, color: Colors.grey.shade600),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _coffretController.text,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: 'Coffret défini automatiquement',
+                  child: Icon(Icons.info_outline, size: 18, color: Colors.blue),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  } else {
+    // Afficher le dropdown normal
+    return _buildDropdown(
+      'Coffret',
+      ['', ..._coffrets],
+      _coffretController.text,
+      (value) {
+        if (value != null) {
+          setState(() => _coffretController.text = value);
+        }
+      },
+    );
+  }
+}
 
   void _onLocalisationChanged(String? value) {
     if (value != null) {
@@ -742,17 +772,9 @@ if (widget.isEdition) {
                       _localisationController.text.isNotEmpty ? _localisationController.text : _localisations.first,
                       _onLocalisationChanged,
                     ),
-                    
-                    _buildDropdown(
-                      'Coffret',
-                      ['', ..._coffrets],
-                      _coffretController.text,
-                      (value) {
-                        if (value != null) {
-                          setState(() => _coffretController.text = value);
-                        }
-                      },
-                    ),
+
+                  // Utiliser _buildCoffretField()
+                  _buildCoffretField(),
                     
                     _buildTextField('Désignation du circuit', _circuitController, isRequired: false),
                     

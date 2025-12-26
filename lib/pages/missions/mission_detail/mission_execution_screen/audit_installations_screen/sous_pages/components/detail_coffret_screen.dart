@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:inspec_app/models/mesures_essais.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/essais_declenchement_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/observation_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:inspec_app/models/audit_installations_electriques.dart';
@@ -1164,6 +1166,329 @@ class _DetailCoffretScreenState extends State<DetailCoffretScreen> {
     }
   }
 
+Future<List<EssaiDeclenchementDifferentiel>> _getEssaisPourCoffret() async {
+  try {
+    final mesures = await HiveService.getOrCreateMesuresEssais(widget.mission.id);
+    
+    // Filtrer les essais qui correspondent à ce coffret par son nom
+    final essaisPourCoffret = mesures.essaisDeclenchement
+        .where((essai) {
+          return essai.coffret == _coffret.nom || 
+                 (essai.coffret != null && essai.coffret!.contains(_coffret.nom));
+        })
+        .toList();
+    
+    return essaisPourCoffret;
+  } catch (e) {
+    print('❌ Erreur chargement essais pour coffret "${_coffret.nom}": $e');
+    return [];
+  }
+}
+
+Widget _buildEssaiCard(EssaiDeclenchementDifferentiel essai, int index) {
+  Color cardColor;
+  String statutText;
+  IconData statutIcon;
+  
+  switch (essai.essai) {
+    case 'OK':
+      cardColor = Colors.green;
+      statutText = 'OK';
+      statutIcon = Icons.check_circle;
+      break;
+    case 'NON OK':
+      cardColor = Colors.red;
+      statutText = 'NON OK';
+      statutIcon = Icons.warning;
+      break;
+    default:
+      cardColor = Colors.grey;
+      statutText = 'NON ESSAYÉ';
+      statutIcon = Icons.help_outline;
+  }
+
+  return Container(
+    margin: EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade50,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: Colors.grey
+      ),
+    ),
+    child: InkWell(
+      onTap: () => _editerEssai(essai),
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // En-tête
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: cardColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: cardColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(statutIcon, size: 14, color: cardColor),
+                      SizedBox(width: 6),
+                      Text(
+                        statutText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: cardColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _editerEssai(essai);
+                    } else if (value == 'delete') {
+                      _supprimerEssai(essai);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 18, color: AppTheme.primaryBlue),
+                          SizedBox(width: 8),
+                          Text('Modifier'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 18, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Supprimer'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            
+            SizedBox(height: 12),
+            
+            // Circuit et localisation
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if(essai.designationCircuit != null && essai.designationCircuit!.isNotEmpty) ...[
+                  Text(
+                    essai.designationCircuit!,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+                SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.location_on_outlined, size: 14, color: Colors.grey.shade600),
+                    SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        essai.localisation,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (essai.coffret != null && essai.coffret!.isNotEmpty) ...[
+                  SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.electrical_services, size: 14, color: Colors.grey.shade600),
+                      SizedBox(width: 4),
+                      Text(
+                        essai.coffret!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            
+            SizedBox(height: 12),
+            
+            // Paramètres techniques
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  // Première ligne : Type et Réglage IΔn
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Type',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            essai.typeDispositifComplet,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (essai.reglageIAn != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Réglage IΔn',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              '${essai.reglageIAn} mA',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: 12),
+                  
+                  // Deuxième ligne : Temporisation et Isolement
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (essai.tempo != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Temporisation',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              '${essai.tempo} s',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      if (essai.isolement != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Isolement',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              '${essai.isolement} MΩ',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  
+                  // Si aucun des deux n'est présent, afficher un message
+                  if (essai.tempo == null && essai.isolement == null && essai.reglageIAn == null)
+                    Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Aucun paramètre technique renseigné',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  
+                  if (essai.observation != null && essai.observation!.isNotEmpty) ...[
+                    SizedBox(height: 12),
+                    Divider(),
+                    SizedBox(height: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Observation',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          essai.observation!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
   Widget _buildCoffretStats() {
     final pointsConformes = _coffret.pointsVerification.where((p) => p.conformite == 'oui').length;
     final totalPoints = _coffret.pointsVerification.length;
@@ -1192,6 +1517,266 @@ class _DetailCoffretScreenState extends State<DetailCoffretScreen> {
       ),
     );
   }
+
+  // Méthode pour éditer un essai
+void _editerEssai(EssaiDeclenchementDifferentiel essai) async {
+  try {
+    // Récupérer toutes les mesures pour trouver l'index exact
+    final mesures = await HiveService.getOrCreateMesuresEssais(widget.mission.id);
+    final essais = mesures.essaisDeclenchement;
+    
+    // Trouver l'index de l'essai en comparant toutes les propriétés
+    int essaiIndex = -1;
+    for (int i = 0; i < essais.length; i++) {
+      final currentEssai = essais[i];
+      if (currentEssai.localisation == essai.localisation &&
+          currentEssai.coffret == essai.coffret &&
+          currentEssai.designationCircuit == essai.designationCircuit &&
+          currentEssai.essai == essai.essai) {
+        essaiIndex = i;
+        break;
+      }
+    }
+    
+    if (essaiIndex != -1) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AjouterEssaiDeclenchementScreen(
+            mission: widget.mission,
+            essai: essai,
+            index: essaiIndex,
+          ),
+        ),
+      );
+
+      if (result == true) {
+        // Rafraîchir l'affichage
+        setState(() {});
+        _showSuccess('Essai modifié');
+      }
+    } else {
+      _showError('Essai non trouvé pour la modification');
+    }
+  } catch (e) {
+    print('❌ Erreur éditer essai: $e');
+    _showError('Erreur lors de la modification de l\'essai');
+  }
+}
+
+// Méthode pour ajouter un nouvel essai
+void _ajouterEssai() async {
+  try {
+    // Déterminer la localisation pour l'essai
+    String localisationPourEssai = '';
+    
+    if (widget.parentType == 'local') {
+      // Récupérer le nom du local
+      final audit = await HiveService.getOrCreateAuditInstallations(widget.mission.id);
+      
+      if (widget.isMoyenneTension) {
+        if (widget.isInZone && widget.zoneIndex != null) {
+          // Local dans une zone MT
+          if (widget.zoneIndex! < audit.moyenneTensionZones.length) {
+            final zone = audit.moyenneTensionZones[widget.zoneIndex!];
+            if (widget.parentIndex < zone.locaux.length) {
+              localisationPourEssai = zone.locaux[widget.parentIndex].nom;
+            }
+          }
+        } else {
+          // Local MT indépendant
+          if (widget.parentIndex < audit.moyenneTensionLocaux.length) {
+            localisationPourEssai = audit.moyenneTensionLocaux[widget.parentIndex].nom;
+          }
+        }
+      } else {
+        // Local BT (toujours dans une zone)
+        if (widget.zoneIndex != null && widget.zoneIndex! < audit.basseTensionZones.length) {
+          final zone = audit.basseTensionZones[widget.zoneIndex!];
+          if (widget.parentIndex < zone.locaux.length) {
+            localisationPourEssai = zone.locaux[widget.parentIndex].nom;
+          }
+        }
+      }
+    } else {
+      // Coffret dans une zone directe
+      final audit = await HiveService.getOrCreateAuditInstallations(widget.mission.id);
+      
+      if (widget.isMoyenneTension) {
+        if (widget.parentIndex < audit.moyenneTensionZones.length) {
+          localisationPourEssai = audit.moyenneTensionZones[widget.parentIndex].nom;
+        }
+      } else {
+        if (widget.parentIndex < audit.basseTensionZones.length) {
+          localisationPourEssai = audit.basseTensionZones[widget.parentIndex].nom;
+        }
+      }
+    }
+    
+    if (localisationPourEssai.isEmpty) {
+      localisationPourEssai = 'Localisation non définie';
+    }
+    
+    // Ouvrir le formulaire d'ajout d'essai
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AjouterEssaiDeclenchementScreen(
+          mission: widget.mission,
+          localisationPredefinie: localisationPourEssai,
+          coffretPredefini: _coffret.nom,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      // Rafraîchir l'affichage
+      setState(() {});
+      _showSuccess('Essai ajouté');
+    }
+  } catch (e) {
+    print('❌ Erreur ajouter essai: $e');
+    _showError('Erreur lors de l\'ajout de l\'essai: $e');
+  }
+}
+
+// Méthode pour supprimer un essai
+Future<void> _supprimerEssai(EssaiDeclenchementDifferentiel essai) async {
+  try {
+    // Récupérer toutes les mesures pour trouver l'index exact
+    final mesures = await HiveService.getOrCreateMesuresEssais(widget.mission.id);
+    final essais = mesures.essaisDeclenchement;
+    
+    // Trouver l'index de l'essai
+    int essaiIndex = -1;
+    for (int i = 0; i < essais.length; i++) {
+      final currentEssai = essais[i];
+      if (currentEssai.localisation == essai.localisation &&
+          currentEssai.coffret == essai.coffret &&
+          currentEssai.designationCircuit == essai.designationCircuit &&
+          currentEssai.essai == essai.essai) {
+        essaiIndex = i;
+        break;
+      }
+    }
+    
+    if (essaiIndex != -1) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Confirmer la suppression', style: TextStyle(fontSize: 18)),
+          content: Text('Voulez-vous vraiment supprimer cet essai ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Annuler', style: TextStyle(color: Colors.grey.shade600)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final success = await HiveService.deleteEssaiDeclenchement(
+                  missionId: widget.mission.id,
+                  index: essaiIndex,
+                );
+                if (success) {
+                  setState(() {});
+                  _showSuccess('Essai supprimé');
+                } else {
+                  _showError('Erreur lors de la suppression');
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: Text('Supprimer'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _showError('Essai non trouvé pour la suppression');
+    }
+  } catch (e) {
+    print('❌ Erreur supprimer essai: $e');
+    _showError('Erreur lors de la suppression de l\'essai');
+  }
+}
+
+  Widget _buildEssaiTab() {
+  return FutureBuilder<List<EssaiDeclenchementDifferentiel>>(
+    future: _getEssaisPourCoffret(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Center(child: CircularProgressIndicator());
+      }
+      
+      if (snapshot.hasError) {
+        return Center(child: Text('Erreur de chargement'));
+      }
+      
+      final essais = snapshot.data ?? [];
+      
+      return Column(
+        children: [
+          if (essais.isEmpty)
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.flash_on_outlined,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Aucun essai pour ce coffret',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Ajoutez un essai pour tester ce coffret',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _ajouterEssai,
+                      icon: Icon(Icons.add),
+                      label: Text('Ajouter un essai'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  setState(() {});
+                },
+                child: ListView.builder(
+                  padding: EdgeInsets.all(16),
+                  itemCount: essais.length,
+                  itemBuilder: (context, index) {
+                    return _buildEssaiCard(essais[index], index);
+                  },
+                ),
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
 
   Widget _buildStatItem(String title, String value) {
     return Column(
@@ -1236,7 +1821,7 @@ class _DetailCoffretScreenState extends State<DetailCoffretScreen> {
           _buildCoffretStats(),
           Expanded(
             child: DefaultTabController(
-              length: 4,
+              length: 5,
               child: Column(
                 children: [
                   Container(
@@ -1251,6 +1836,7 @@ class _DetailCoffretScreenState extends State<DetailCoffretScreen> {
                         Tab(text: 'PHOTOS (${_coffretPhotos.length})'),
                         Tab(text: 'INFORMATIONS'),
                         Tab(text: 'POINTS (${_coffret.pointsVerification.length})'),
+                         Tab(text: 'ESSAI'),
                       ],
                     ),
                   ),
@@ -1340,6 +1926,8 @@ class _DetailCoffretScreenState extends State<DetailCoffretScreen> {
                                   return _buildPointVerificationCard(_coffret.pointsVerification[index]);
                                 },
                               ),
+
+                               _buildEssaiTab(),
                       ],
                     ),
                   ),

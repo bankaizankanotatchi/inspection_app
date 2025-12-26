@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/essais_declenchement_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:inspec_app/models/audit_installations_electriques.dart';
 import 'package:inspec_app/models/mission.dart';
@@ -765,89 +766,198 @@ void _chargerDonneesExistantes() {
     }
   }
 
-  void _sauvegarder() async {
-    if (_formKey.currentState!.validate() && _selectedType != null) {
-      try {
-        final coffret = CoffretArmoire(
-          qrCode: _qrCodeController.text.trim(), 
-          nom: _nomController.text.trim(),
-          type: _selectedType!,
-          repere: _repereController.text.trim().isNotEmpty
-              ? _repereController.text.trim()
-              : null,
-          zoneAtex: _zoneAtex,
-          domaineTension: _domaineTension,
-          identificationArmoire: _identificationArmoire,
-          signalisationDanger: _signalisationDanger,
-          presenceSchema: _presenceSchema,
-          presenceParafoudre: _presenceParafoudre,
-          verificationThermographie: _verificationThermographie,
-          alimentations: _alimentations,
-          protectionTete: _protectionTete,
-          pointsVerification: _pointsVerification,
-          observationsLibres: _observationsExistantes, // Liste d'ObservationLibre
-          photos: _coffretPhotos, // Photos du coffret
-        );
 
-        bool success;
+  Future<void> _transfererEssais(String ancienNom, String nouveauNom) async {
+  try {
+    // Récupérer les mesures d'essais
+    final mesures = await HiveService.getOrCreateMesuresEssais(widget.mission.id);
+    
+    // Trouver tous les essais associés à l'ancien nom du coffret
+    for (var essai in mesures.essaisDeclenchement) {
+      if (essai.coffret == ancienNom) {
+        // Mettre à jour le nom du coffret dans l'essai
+        essai.coffret = nouveauNom;
+        print('✅ Essai mis à jour: ${essai.coffret} → $nouveauNom');
+      }
+    }
+    
+    // Sauvegarder les modifications
+    await HiveService.saveMesuresEssais(mesures);
+    print('✅ Transfert des essais terminé: $ancienNom → $nouveauNom');
+    
+  } catch (e) {
+    print('❌ Erreur transfert essais: $e');
+    _showError('Erreur lors du transfert des essais');
+  }
+}
 
-        if (widget.isEdition) {
-          success = await _updateCoffret(coffret);
-        } else {
-          // Logique de création
-          if (widget.parentType == 'local') {
-            if (widget.isMoyenneTension) {
-              if (widget.isInZone && widget.zoneIndex != null) {
-                // Coffret dans un local qui est dans une zone MT
-                success = await _addCoffretToLocalInMoyenneTensionZone(coffret);
-              } else {
-                // Coffret dans un local MT indépendant
-                success = await HiveService.addCoffretToMoyenneTensionLocal(
-                  missionId: widget.mission.id,
-                  localIndex: widget.parentIndex,
-                  coffret: coffret,
-                  qrCode: widget.qrCode!
+void _sauvegarder() async {
+  if (_formKey.currentState!.validate() && _selectedType != null) {
+    _formKey.currentState!.save();
+    
+    try {
+      final nouveauCoffret = CoffretArmoire(
+        qrCode: _qrCodeController.text.trim(), 
+        nom: _nomController.text.trim(),
+        type: _selectedType!,
+        repere: _repereController.text.trim().isNotEmpty
+            ? _repereController.text.trim()
+            : null,
+        zoneAtex: _zoneAtex,
+        domaineTension: _domaineTension,
+        identificationArmoire: _identificationArmoire,
+        signalisationDanger: _signalisationDanger,
+        presenceSchema: _presenceSchema,
+        presenceParafoudre: _presenceParafoudre,
+        verificationThermographie: _verificationThermographie,
+        alimentations: _alimentations,
+        protectionTete: _protectionTete,
+        pointsVerification: _pointsVerification,
+        observationsLibres: _observationsExistantes,
+        photos: _coffretPhotos,
+      );
 
-                );
-              }
+      // ===== TRANSFERT DES ESSAIS SI LE NOM DU COFFRET CHANGE =====
+      if (widget.isEdition && widget.coffret != null) {
+        final ancienNom = widget.coffret!.nom;
+        final nouveauNom = _nomController.text.trim();
+        
+        if (ancienNom != nouveauNom) {
+          print('🔄 Transfert essais: $ancienNom → $nouveauNom');
+          await _transfererEssais(ancienNom, nouveauNom);
+        }
+      }
+      // ===== FIN TRANSFERT =====
+      
+      bool success;
+
+      if (widget.isEdition) {
+        success = await _updateCoffret(nouveauCoffret);
+      } else {
+        // Logique de création
+        if (widget.parentType == 'local') {
+          if (widget.isMoyenneTension) {
+            if (widget.isInZone && widget.zoneIndex != null) {
+              // Coffret dans un local qui est dans une zone MT
+              success = await _addCoffretToLocalInMoyenneTensionZone(nouveauCoffret);
             } else {
-              // Coffret dans un local BT (toujours dans une zone)
-              success = await HiveService.addCoffretToBasseTensionLocal(
+              // Coffret dans un local MT indépendant
+              success = await HiveService.addCoffretToMoyenneTensionLocal(
                 missionId: widget.mission.id,
-                zoneIndex: widget.zoneIndex ?? 0,
                 localIndex: widget.parentIndex,
-                coffret: coffret,
+                coffret: nouveauCoffret,
+                qrCode: widget.qrCode!
               );
             }
           } else {
-            // Coffret dans une zone
-            if (widget.isMoyenneTension) {
-              success = await HiveService.addCoffretToMoyenneTensionZone(
-                missionId: widget.mission.id,
-                zoneIndex: widget.parentIndex,
-                coffret: coffret,
-              );
-            } else {
-              success = await HiveService.addCoffretToBasseTensionZone(
-                missionId: widget.mission.id,
-                zoneIndex: widget.parentIndex,
-                coffret: coffret,
-              );
-            }
+            // Coffret dans un local BT (toujours dans une zone)
+            success = await HiveService.addCoffretToBasseTensionLocal(
+              missionId: widget.mission.id,
+              zoneIndex: widget.zoneIndex ?? 0,
+              localIndex: widget.parentIndex,
+              coffret: nouveauCoffret,
+            );
+          }
+        } else {
+          // Coffret dans une zone
+          if (widget.isMoyenneTension) {
+            success = await HiveService.addCoffretToMoyenneTensionZone(
+              missionId: widget.mission.id,
+              zoneIndex: widget.parentIndex,
+              coffret: nouveauCoffret,
+            );
+          } else {
+            success = await HiveService.addCoffretToBasseTensionZone(
+              missionId: widget.mission.id,
+              zoneIndex: widget.parentIndex,
+              coffret: nouveauCoffret,
+            );
           }
         }
+      }
 
-        if (success) {
-          Navigator.pop(context, true);
+if (success) {
+  // DANS LE CAS D'UNE ÉDITION : retour direct à l'écran précédent
+  if (widget.isEdition) {
+    Navigator.pop(context, true);
+  } else {
+    // DANS LE CAS D'UNE CRÉATION : ouvrir le formulaire d'essai
+    
+    // Déterminer la localisation pour ouvrir le formulaire d'essai
+    String localisationPourEssai = '';
+    
+    if (widget.parentType == 'local') {
+      // Récupérer le nom du local
+      final audit = await HiveService.getOrCreateAuditInstallations(widget.mission.id);
+      
+      if (widget.isMoyenneTension) {
+        if (widget.isInZone && widget.zoneIndex != null) {
+          // Local dans une zone MT
+          if (widget.zoneIndex! < audit.moyenneTensionZones.length) {
+            final zone = audit.moyenneTensionZones[widget.zoneIndex!];
+            if (widget.parentIndex < zone.locaux.length) {
+              localisationPourEssai = zone.locaux[widget.parentIndex].nom;
+            }
+          }
         } else {
-          _showError('Erreur lors de la sauvegarde');
+          // Local MT indépendant
+          if (widget.parentIndex < audit.moyenneTensionLocaux.length) {
+            localisationPourEssai = audit.moyenneTensionLocaux[widget.parentIndex].nom;
+          }
         }
-      } catch (e) {
-        _showError('Erreur: $e');
+      } else {
+        // Local BT (toujours dans une zone)
+        if (widget.zoneIndex != null && widget.zoneIndex! < audit.basseTensionZones.length) {
+          final zone = audit.basseTensionZones[widget.zoneIndex!];
+          if (widget.parentIndex < zone.locaux.length) {
+            localisationPourEssai = zone.locaux[widget.parentIndex].nom;
+          }
+        }
+      }
+    } else {
+      // Coffret dans une zone directe
+      final audit = await HiveService.getOrCreateAuditInstallations(widget.mission.id);
+      
+      if (widget.isMoyenneTension) {
+        if (widget.parentIndex < audit.moyenneTensionZones.length) {
+          localisationPourEssai = audit.moyenneTensionZones[widget.parentIndex].nom;
+        }
+      } else {
+        if (widget.parentIndex < audit.basseTensionZones.length) {
+          localisationPourEssai = audit.basseTensionZones[widget.parentIndex].nom;
+        }
       }
     }
+    
+    if (localisationPourEssai.isEmpty) {
+      localisationPourEssai = 'Localisation non définie';
+    }
+    
+    // OUVIR DIRECTEMENT LE FORMULAIRE D'ESSAI (uniquement pour création)
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AjouterEssaiDeclenchementScreen(
+          mission: widget.mission,
+          localisationPredefinie: localisationPourEssai,
+          coffretPredefini: nouveauCoffret.nom,
+        ),
+      ),
+    );
+    
+    // Retourner à l'écran précédent
+    Navigator.pop(context, true);
   }
-
+  
+} else {
+  _showError('Erreur lors de la sauvegarde');
+}
+    } catch (e) {
+      _showError('Erreur: $e');
+    }
+  }
+}
+  
   Future<bool> _addCoffretToLocalInMoyenneTensionZone(
     CoffretArmoire coffret,
   ) async {

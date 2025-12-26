@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:inspec_app/models/classement_locaux.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/classement_emplacement_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/classement_locaux_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/observation_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/qr_scan_coffret_screen.dart';
@@ -43,8 +45,6 @@ class _DetailLocalScreenState extends State<DetailLocalScreen> {
   
   // Pour les nouvelles observations
   final _nouvelleObservationController = TextEditingController();
-  List<String> _photosPourNouvelleObservation = [];
-  bool _isLoadingObservationPhotos = false;
 
   @override
   void initState() {
@@ -967,6 +967,331 @@ void _editerObservation(int index) async {
     );
   }
 
+Widget _buildClassementTab() {
+  return FutureBuilder<ClassementEmplacement?>(
+    future: Future.value(
+      HiveService.getClassementForLocal(
+        missionId: widget.mission.id,
+        localisation: _local.nom,
+      ),
+    ),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      final classement = snapshot.data;
+
+      if (classement == null) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.security_outlined,
+                size: 64,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun classement défini',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _allerAuClassement,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('DÉFINIR LE CLASSEMENT'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      final estComplet =
+          classement.af != null &&
+          classement.be != null &&
+          classement.ae != null &&
+          classement.ad != null &&
+          classement.ag != null;
+
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Ligne 1
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: estComplet
+                              ? Colors.green.shade50
+                              : Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          estComplet
+                              ? Icons.check_circle_outline
+                              : Icons.info_outline,
+                          color: estComplet
+                              ? Colors.green
+                              : AppTheme.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _local.nom,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (classement.zone != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Zone: ${classement.zone}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: estComplet
+                              ? Colors.green.shade100
+                              : Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          estComplet ? 'Complet' : 'À compléter',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: estComplet
+                                ? Colors.green.shade800
+                                : Colors.orange.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Origine
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Origine: ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            classement.origineClassement.isNotEmpty
+                                ? classement.origineClassement
+                                : 'Non définie',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: classement.origineClassement.isNotEmpty
+                                  ? AppTheme.darkBlue
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Influences
+                  if (estComplet)
+                    Column(
+                    
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade100),
+                          ),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _buildInfluenceChip('AF', classement.af!),
+                              _buildInfluenceChip('BE', classement.be!),
+                              _buildInfluenceChip('AE', classement.ae!),
+                              _buildInfluenceChip('AD', classement.ad!),
+                              _buildInfluenceChip('AG', classement.ag!),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              Text(
+                                'IP: ${classement.ip ?? "N/A"}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade800,
+                                ),
+                              ),
+                              Text(
+                                'IK: ${classement.ik ?? "N/A"}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade100),
+                      ),
+                      child: const Text(
+                        'Cliquez sur "Modifier le classement" pour renseigner les influences externes',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _allerAuClassement,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryBlue,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      child: const Text('MODIFIER LE CLASSEMENT'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+void _allerAuClassement() async {
+  final classement = await HiveService.getOrCreateClassementForLocal(
+    missionId: widget.mission.id,
+    localisation: _local.nom,
+    zone: widget.isInZone && widget.zoneIndex != null 
+        ? 'Zone ${widget.zoneIndex! + 1}' 
+        : null,
+    typeLocal: _local.type,
+  );
+  
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ClassementEmplacementScreen(
+        mission: widget.mission,
+        emplacement: classement,
+      ),
+    ),
+  );
+  
+  // Rafraîchir après retour
+  if (result == true) {
+    setState(() {});
+  }
+}
+
+Widget _buildInfluenceChip(String type, String code) {
+  final Map<String, Color> colorMap = {
+    'AF': Colors.blue,
+    'BE': Colors.purple,
+    'AE': Colors.orange,
+    'AD': Colors.teal,
+    'AG': Colors.red,
+  };
+  
+  return Container(
+    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: colorMap[type]!.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: colorMap[type]!.withOpacity(0.3)),
+    ),
+    child: Text(
+      '$type: $code',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: colorMap[type]!,
+      ),
+    ),
+  );
+}
+
 Widget _buildElementItem(ElementControle element) {
   return Container(
     margin: EdgeInsets.only(bottom: 8),
@@ -1038,6 +1363,27 @@ Widget _buildElementItem(ElementControle element) {
               fontStyle: FontStyle.italic,
               fontWeight: FontWeight.bold
             ),
+          ),
+        ],
+
+                // Référence normative 
+        if (element.referenceNormative != null && element.referenceNormative!.isNotEmpty) ...[
+          SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.article_outlined, size: 12, color: Colors.blue),
+              SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'Référence: ${element.referenceNormative}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
         
@@ -1254,7 +1600,7 @@ Widget _buildElementItem(ElementControle element) {
   @override
   Widget build(BuildContext context) {
     final isTransformateur = _local.type == 'LOCAL_TRANSFORMATEUR';
-    final tabCount = isTransformateur ? 6 : 4;
+    final tabCount = isTransformateur ? 7 : 5;
 
     return Scaffold(
       appBar: AppBar(
@@ -1296,6 +1642,7 @@ Widget _buildElementItem(ElementControle element) {
                         if (isTransformateur) Tab(text: 'CELLULE'),
                         if (isTransformateur) Tab(text: 'TRANSFORMATEUR'),
                         Tab(text: 'COFFRETS (${_local.coffrets.length})'),
+                        Tab(text: 'CLASSEMENT'), 
                       ],
                     ),
                   ),
@@ -1441,6 +1788,8 @@ Widget _buildElementItem(ElementControle element) {
                                   return _buildCoffretCard(_local.coffrets[index], index);
                                 },
                               ),
+
+                              _buildClassementTab(),
                       ],
                     ),
                   ),

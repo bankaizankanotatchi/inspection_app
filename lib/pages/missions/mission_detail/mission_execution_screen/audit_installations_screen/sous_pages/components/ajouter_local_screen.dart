@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:inspec_app/models/classement_locaux.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/classement_emplacement_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:inspec_app/models/audit_installations_electriques.dart';
 import 'package:inspec_app/models/mission.dart';
@@ -732,76 +734,175 @@ class _AjouterLocalScreenState extends State<AjouterLocalScreen> {
     }
   }
 
-  void _sauvegarder() async {
-    if (_formKey.currentState!.validate() && _selectedType != null) {
-      _formKey.currentState!.save();
-      
-      try {
-        if (widget.isMoyenneTension) {
-          if (widget.isInZone && widget.zoneIndex != null) {
-            // CAS 1: LOCAL DANS UNE ZONE MT (ajout ou édition)
-            if (widget.isEdition && widget.localIndex != null) {
-              // Éditer un local existant DANS une zone MT
-              await HiveService.updateLocalInMoyenneTensionZone(
-                missionId: widget.mission.id,
-                zoneIndex: widget.zoneIndex!,
-                localIndex: widget.localIndex!,
-                local: _creerMoyenneTensionLocal(),
-              );
-            } else {
-              // Ajouter un nouveau local DANS une zone MT
-              await HiveService.addLocalToMoyenneTensionZone(
-                missionId: widget.mission.id,
-                zoneIndex: widget.zoneIndex!,
-                local: _creerMoyenneTensionLocal(),
-              );
+void _sauvegarder() async {
+  if (_formKey.currentState!.validate() && _selectedType != null) {
+    _formKey.currentState!.save();
+    
+    try {
+      dynamic nouveauLocal;
+
+            // ===== TRANSFERT DU CLASSEMENT SI LE NOM A CHANGÉ =====
+      if (widget.isEdition && widget.local != null) {
+        final ancienNom = widget.local!.nom;
+        final nouveauNom = _nomController.text.trim();
+        
+        if (ancienNom != nouveauNom) {
+          // 1. Chercher le classement existant avec l'ancien nom
+          final ancienClassement = HiveService.getClassementForLocal(
+            missionId: widget.mission.id,
+            localisation: ancienNom,
+          );
+          
+          if (ancienClassement != null) {
+            print('🔄 Transfert classement: $ancienNom → $nouveauNom');
+            
+            // 2. Mettre à jour la localisation du classement existant
+            ancienClassement.localisation = nouveauNom;
+            
+            // 3. Mettre à jour zone et type si nécessaire
+            if (widget.isInZone && widget.zoneIndex != null) {
+              ancienClassement.zone = 'Zone ${widget.zoneIndex! + 1}';
             }
-          } else {
-            // CAS 2: LOCAL MT INDÉPENDANT (hors zone)
-            if (widget.isEdition && widget.localIndex != null) {
-              await HiveService.updateMoyenneTensionLocal(
-                missionId: widget.mission.id,
-                localIndex: widget.localIndex!,
-                local: _creerMoyenneTensionLocal(),
-              );
-            } else {
-              await HiveService.addMoyenneTensionLocal(
-                missionId: widget.mission.id,
-                local: _creerMoyenneTensionLocal(),
-              );
-            }
-          }
-        } else {
-          // CAS 3: BASSE TENSION (toujours dans une zone)
-          if (widget.zoneIndex != null) {
-            if (widget.isEdition && widget.localIndex != null) {
-              await HiveService.updateBasseTensionLocal(
-                missionId: widget.mission.id,
-                zoneIndex: widget.zoneIndex!,
-                localIndex: widget.localIndex!,
-                local: _creerBasseTensionLocal(),
-              );
-            } else {
-              await HiveService.addLocalToBasseTensionZone(
-                missionId: widget.mission.id,
-                zoneIndex: widget.zoneIndex!,
-                local: _creerBasseTensionLocal(),
-              );
-            }
-          } else {
-            // Ce cas ne devrait pas arriver pour BT
-            _showError('Erreur: pour basse tension, un local doit être dans une zone');
-            return;
+            ancienClassement.typeLocal = _selectedType;
+            
+            // 4. Sauvegarder les modifications
+            ancienClassement.updatedAt = DateTime.now();
+            await ancienClassement.save();
+            
+            print('✅ Classement transféré vers nouveau nom');
           }
         }
-        
-        Navigator.pop(context, true);
-      } catch (e) {
-        print('❌ Erreur sauvegarde: $e');
-        _showError('Erreur lors de la sauvegarde: $e');
       }
+      // ===== FIN TRANSFERT =====
+      
+      if (widget.isMoyenneTension) {
+        if (widget.isInZone && widget.zoneIndex != null) {
+          // CAS 1: LOCAL DANS UNE ZONE MT (ajout ou édition)
+          if (widget.isEdition && widget.localIndex != null) {
+            // Éditer un local existant DANS une zone MT
+            await HiveService.updateLocalInMoyenneTensionZone(
+              missionId: widget.mission.id,
+              zoneIndex: widget.zoneIndex!,
+              localIndex: widget.localIndex!,
+              local: _creerMoyenneTensionLocal(),
+            );
+            nouveauLocal = _creerMoyenneTensionLocal();
+          } else {
+            // Ajouter un nouveau local DANS une zone MT
+            await HiveService.addLocalToMoyenneTensionZone(
+              missionId: widget.mission.id,
+              zoneIndex: widget.zoneIndex!,
+              local: _creerMoyenneTensionLocal(),
+            );
+            nouveauLocal = _creerMoyenneTensionLocal();
+          }
+        } else {
+          // CAS 2: LOCAL MT INDÉPENDANT (hors zone)
+          if (widget.isEdition && widget.localIndex != null) {
+            await HiveService.updateMoyenneTensionLocal(
+              missionId: widget.mission.id,
+              localIndex: widget.localIndex!,
+              local: _creerMoyenneTensionLocal(),
+            );
+            nouveauLocal = _creerMoyenneTensionLocal();
+          } else {
+            await HiveService.addMoyenneTensionLocal(
+              missionId: widget.mission.id,
+              local: _creerMoyenneTensionLocal(),
+            );
+            nouveauLocal = _creerMoyenneTensionLocal();
+          }
+        }
+      } else {
+        // CAS 3: BASSE TENSION (toujours dans une zone)
+        if (widget.zoneIndex != null) {
+          if (widget.isEdition && widget.localIndex != null) {
+            await HiveService.updateBasseTensionLocal(
+              missionId: widget.mission.id,
+              zoneIndex: widget.zoneIndex!,
+              localIndex: widget.localIndex!,
+              local: _creerBasseTensionLocal(),
+            );
+            nouveauLocal = _creerBasseTensionLocal();
+          } else {
+            await HiveService.addLocalToBasseTensionZone(
+              missionId: widget.mission.id,
+              zoneIndex: widget.zoneIndex!,
+              local: _creerBasseTensionLocal(),
+            );
+            nouveauLocal = _creerBasseTensionLocal();
+          }
+        } else {
+          // Ce cas ne devrait pas arriver pour BT
+          _showError('Erreur: pour basse tension, un local doit être dans une zone');
+          return;
+        }
+      }
+      
+      // Si c'est une édition, retour direct à DetailLocalScreen
+      // Si c'est un ajout, aller au classement
+      if (widget.isEdition) {
+        Navigator.pop(context, true); // Retour direct à DetailLocalScreen
+      } else {
+        // Pour un nouvel ajout, aller au classement
+        await _allerAuClassement(nouveauLocal);
+      }
+      
+    } catch (e) {
+      print('❌ Erreur sauvegarde: $e');
+      _showError('Erreur lors de la sauvegarde: $e');
     }
   }
+}
+
+Future<void> _allerAuClassement(dynamic local) async {
+  if (local == null) {
+    _showError('Erreur: impossible de créer le classement pour ce local');
+    Navigator.pop(context, true);
+    return;
+  }
+  
+  try {
+    ClassementEmplacement? classement;
+    
+    // IMPORTANT : pour l'édition, chercher d'abord l'existant
+    if (widget.isEdition) {
+      classement = HiveService.getClassementExisting(
+        missionId: widget.mission.id,
+        localisation: local.nom,
+      );
+    }
+    
+    // Si pas trouvé ou nouveau local, créer ou récupérer
+    classement ??= await HiveService.getOrCreateClassementForLocal(
+        missionId: widget.mission.id,
+        localisation: local.nom,
+        zone: widget.isInZone && widget.zoneIndex != null 
+            ? 'Zone ${widget.zoneIndex! + 1}' 
+            : null,
+        typeLocal: local.type,
+      );
+    
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ClassementEmplacementScreen(
+          mission: widget.mission,
+          emplacement: classement!,
+        ),
+      ),
+    );
+    
+    if (result == true) {
+      Navigator.pop(context, true);
+    }
+    
+  } catch (e) {
+    print('❌ Erreur allerAuClassement: $e');
+    _showError('Erreur lors de l\'accès au classement: $e');
+    Navigator.pop(context, true);
+  }
+}
 
   MoyenneTensionLocal _creerMoyenneTensionLocal() {
     return MoyenneTensionLocal(
@@ -964,6 +1065,20 @@ Widget _buildElementWithPriorityAndObservation(ElementControle element, int inde
               hintText: 'Saisissez vos observations...',
             ),
             maxLines: 2,
+          ),
+          
+          SizedBox(height: 12),
+
+                    // Ligne 2: Référence normative (NOUVEAU CHAMP)
+          TextFormField(
+            initialValue: element.referenceNormative,
+            onChanged: (value) => element.referenceNormative = value,
+            decoration: InputDecoration(
+              labelText: 'Référence normative',
+              border: OutlineInputBorder(),
+              hintText: 'Ex: NF C 15-100, IEC 60364...',
+            ),
+            maxLines: 1,
           ),
           
           SizedBox(height: 16),
@@ -1248,45 +1363,6 @@ Widget _buildElementControleList(String title, List<ElementControle> elements, S
   );
 }
 
-  Widget _buildConformiteSelector(ElementControle element) {
-    return DropdownButtonFormField<bool>(
-      value: element.conforme,
-      onChanged: (bool? newValue) {
-        setState(() {
-          element.conforme = newValue ?? false;
-        });
-      },
-      decoration: InputDecoration(
-        labelText: 'Conformité',
-        border: OutlineInputBorder(),
-        contentPadding: EdgeInsets.symmetric(horizontal: 8),
-      ),
-      items: [
-        DropdownMenuItem(value: true, child: Text('Oui', style: TextStyle(color: Colors.green))),
-        DropdownMenuItem(value: false, child: Text('Non', style: TextStyle(color: Colors.red))),
-      ],
-      isExpanded: true,
-    );
-  }
-
-  Widget _buildPrioriteSelector(ElementControle element) {
-    return DropdownButton<int?>(
-      value: element.priorite,
-      hint: Text('Prio'),
-      onChanged: (int? newValue) {
-        setState(() {
-          element.priorite = newValue;
-        });
-      },
-      items: [
-        DropdownMenuItem(value: null, child: Text('-')),
-        DropdownMenuItem(value: 1, child: Text('N1', style: TextStyle(color: Colors.blue))),
-        DropdownMenuItem(value: 2, child: Text('N2', style: TextStyle(color: Colors.orange))),
-        DropdownMenuItem(value: 3, child: Text('N3', style: TextStyle(color: Colors.red))),
-      ],
-    );
-  }
-
 
   Widget _buildTextField(TextEditingController controller, String label, {bool isMultiline = false, bool isRequired = false}) {
     return Padding(
@@ -1488,3 +1564,4 @@ Widget _buildElementControleList(String title, List<ElementControle> elements, S
     super.dispose();
   }
 }
+

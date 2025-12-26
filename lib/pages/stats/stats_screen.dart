@@ -17,7 +17,7 @@ class StatsScreen extends StatefulWidget {
   const StatsScreen({
     super.key, 
     required this.user,
-    this.initialPeriod = 'month', 
+    this.initialPeriod = 'year', 
     this.onPeriodChanged,
   });
 

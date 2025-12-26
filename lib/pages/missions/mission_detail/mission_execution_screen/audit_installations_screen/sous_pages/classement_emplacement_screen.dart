@@ -36,45 +36,30 @@ class _ClassementEmplacementScreenState extends State<ClassementEmplacementScree
     super.dispose();
   }
 
-  void _sauvegarder() async {
-    _emplacement.origineClassement = _origineController.text.trim();
-    _emplacement.calculerIndices(); // Recalculer IP/IK
-    
-    final success = await HiveService.updateEmplacement(_emplacement);
-    
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Classement sauvegardé')),
-      );
-      Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la sauvegarde')),
-      );
-    }
+void _sauvegarder() async {
+  _emplacement.origineClassement = _origineController.text.trim();
+  _emplacement.calculerIndices();
+  
+  final success = await HiveService.updateEmplacement(_emplacement);
+  
+  if (success) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Classement sauvegardé')),
+    );
+    // Retourner true pour indiquer succès
+    Navigator.pop(context, true);
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur lors de la sauvegarde')),
+    );
   }
+}
 
-  void _annuler() {
-    Navigator.pop(context);
-  }
+void _annuler() {
+  // Retourner false pour indiquer annulation
+  Navigator.pop(context, false);
+}
 
-  // Méthode pour obtenir la description correcte selon le titre
-  String _getDescriptionForTitle(String title, String code) {
-    switch (title) {
-      case 'AF - Substances corrosives ou polluantes':
-        return HiveService.getDescriptionAF(code);
-      case 'BE - Matières traitées ou entreposées':
-        return HiveService.getDescriptionBE(code);
-      case 'AE - Pénétration de corps solides':
-        return HiveService.getDescriptionAE(code);
-      case 'AD - Pénétration de liquides':
-        return HiveService.getDescriptionAD(code);
-      case 'AG - Risques de chocs mécaniques':
-        return HiveService.getDescriptionAG(code);
-      default:
-        return code;
-    }
-  }
 
   Widget _buildSelecteur(String title, String? currentValue, List<String> options, Function(String?) onChanged) {
     return Container(

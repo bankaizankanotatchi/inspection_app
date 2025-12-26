@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:inspec_app/models/classement_locaux.dart';
 import 'package:inspec_app/models/mission.dart';
 import 'package:inspec_app/constants/app_theme.dart';
-import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/classement_emplacement_screen.dart';
 import 'package:inspec_app/services/hive_service.dart';
 
 class ClassementLocauxScreen extends StatefulWidget {
@@ -51,23 +50,7 @@ class _ClassementLocauxScreenState extends State<ClassementLocauxScreen> {
     }
   }
 
-  void _refreshList() {
-    setState(() {
-      _emplacements = HiveService.getEmplacementsByMissionId(widget.mission.id);
-    });
-  }
 
-  void _navigateToEmplacement(int index) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ClassementEmplacementScreen(
-          mission: widget.mission,
-          emplacement: _emplacements[index],
-        ),
-      ),
-    ).then((_) => _refreshList());
-  }
 
   Widget _buildEmptyState() {
     return Center(
@@ -220,7 +203,7 @@ Widget _buildEmplacementCard(ClassementEmplacement emplacement, int index) {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     elevation: 2,
     child: InkWell(
-      onTap: () => _navigateToEmplacement(index),
+      onTap: () => {},
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: EdgeInsets.all(16),

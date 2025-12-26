@@ -102,6 +102,12 @@ class HiveService {
     }
   }
 
+  //liste de tous les verificateurs
+  static List<Verificateur> getAllVerificateurs() {
+    final box = Hive.box<Verificateur>(_verificateurBox);
+    return box.values.toList();
+  }
+
   /// Récupérer UN utilisateur à partir du matricule (connexion locale)
   static Verificateur? getUserByMatricule(String matricule) {
     final box = Hive.box<Verificateur>(_verificateurBox);
@@ -4515,5 +4521,134 @@ static bool _replaceElement(
   }
   
   return false;
+}
+
+// ============================================================
+//          GESTION CLASSEMENT POUR UN LOCAL SPÉCIFIQUE
+// ============================================================
+
+/// Créer ou récupérer le classement pour un local spécifique
+static Future<ClassementEmplacement> getOrCreateClassementForLocal({
+  required String missionId,
+  required String localisation,
+  String? zone,
+  String? typeLocal,
+}) async {
+  final classementBox = Hive.box<ClassementEmplacement>(_classementBox);
+  
+  try {
+    // Méthode 1: Chercher manuellement sans firstWhere
+    ClassementEmplacement? existing;
+    
+    // Parcourir tous les classements pour trouver celui qui correspond
+    for (var classement in classementBox.values) {
+      if (classement.missionId == missionId && classement.localisation == localisation) {
+        existing = classement;
+        break;
+      }
+    }
+    
+    if (existing != null) {
+      // Mettre à jour les informations si elles ont changé
+      if (zone != null && existing.zone != zone) {
+        existing.zone = zone;
+      }
+      if (typeLocal != null && existing.typeLocal != typeLocal) {
+        existing.typeLocal = typeLocal;
+      }
+      if (zone != null || typeLocal != null) {
+        existing.updatedAt = DateTime.now();
+        await existing.save();
+      }
+      
+      print('✅ Classement existant trouvé pour: $localisation');
+      return existing;
+    } else {
+      // Créer un nouveau classement
+      final newClassement = ClassementEmplacement.create(
+        missionId: missionId,
+        localisation: localisation,
+        zone: zone,
+        typeLocal: typeLocal,
+      );
+      await classementBox.add(newClassement);
+      print('✅ Nouveau classement créé pour: $localisation');
+      return newClassement;
+    }
+    
+  } catch (e) {
+    print('❌ Erreur getOrCreateClassementForLocal: $e');
+    // En cas d'erreur, créer une nouvelle instance
+    final newClassement = ClassementEmplacement.create(
+      missionId: missionId,
+      localisation: localisation,
+      zone: zone,
+      typeLocal: typeLocal,
+    );
+    await classementBox.add(newClassement);
+    return newClassement;
+  }
+}
+
+/// Méthode plus simple pour récupérer seulement (pas de création)
+static ClassementEmplacement? getClassementForLocal({
+  required String missionId,
+  required String localisation,
+}) {
+  final classementBox = Hive.box<ClassementEmplacement>(_classementBox);
+  
+  try {
+    return classementBox.values.firstWhere(
+      (c) => c.missionId == missionId && c.localisation == localisation,
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
+/// Mettre à jour uniquement les informations de zone/type d'un classement existant
+static Future<bool> updateClassementInfo({
+  required String missionId,
+  required String localisation,
+  String? zone,
+  String? typeLocal,
+}) async {
+  try {
+    final classement = getClassementForLocal(
+      missionId: missionId,
+      localisation: localisation,
+    );
+    
+    if (classement != null) {
+      if (zone != null) classement.zone = zone;
+      if (typeLocal != null) classement.typeLocal = typeLocal;
+      
+      if (zone != null || typeLocal != null) {
+        classement.updatedAt = DateTime.now();
+        await classement.save();
+        print('✅ Informations classement mises à jour pour: $localisation');
+      }
+      return true;
+    }
+    
+    return false;
+  } catch (e) {
+    print('❌ Erreur updateClassementInfo: $e');
+    return false;
+  }
+}
+/// Récupérer un classement existant sans en créer un nouveau
+static ClassementEmplacement? getClassementExisting({
+  required String missionId,
+  required String localisation,
+}) {
+  try {
+    final box = Hive.box<ClassementEmplacement>(_classementBox);
+    return box.values.firstWhere(
+      (c) => c.missionId == missionId && c.localisation == localisation,
+    );
+  } catch (e) {
+    return null;
+  }
 }
 }

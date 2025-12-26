@@ -229,12 +229,16 @@ class ElementControle {
   @HiveField(4)
   List<String> photos; // Photos spécifiques pour cet élément de contrôle
 
+  @HiveField(5)
+  String? referenceNormative;
+
   ElementControle({
     required this.elementControle,
     required this.conforme,
     this.observation,
     this.priorite,
     List<String>? photos,
+    this.referenceNormative
   }) : photos = photos ?? [];
 }
 
