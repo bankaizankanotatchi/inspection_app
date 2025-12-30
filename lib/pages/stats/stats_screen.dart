@@ -85,7 +85,7 @@ class _StatsScreenState extends State<StatsScreen> {
         startDate = DateTime(now.year, 1, 1);
         break;
       default:
-        startDate = DateTime(now.year, now.month, 1);
+        startDate = DateTime(now.year, 1, 1);
     }
 
     final filtered = missions.where((mission) {
@@ -93,8 +93,6 @@ class _StatsScreenState extends State<StatsScreen> {
       return missionDate.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
              missionDate.isBefore(endDate.add(const Duration(seconds: 1)));
     }).toList();
-
-    print('✅ Missions filtrées: ${filtered.length} sur ${missions.length}');
 
     setState(() {
       _selectedPeriod = period;
@@ -117,7 +115,6 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   void _applyCustomDateRange(DateTime startDate, DateTime endDate) {
-    print('📅 Application de la période personnalisée: ${_formatDate(startDate)} - ${_formatDate(endDate)}');
     
     setState(() {
       _customStartDate = startDate;

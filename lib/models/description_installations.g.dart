@@ -19,27 +19,14 @@ class DescriptionInstallationsAdapter
     };
     return DescriptionInstallations(
       missionId: fields[0] as String,
-      alimentationMoyenneTension: (fields[1] as List)
-          .map((dynamic e) => (e as Map).cast<String, String>())
-          .toList(),
-      alimentationBasseTension: (fields[2] as List)
-          .map((dynamic e) => (e as Map).cast<String, String>())
-          .toList(),
-      groupeElectrogene: (fields[3] as List)
-          .map((dynamic e) => (e as Map).cast<String, String>())
-          .toList(),
-      alimentationCarburant: (fields[4] as List)
-          .map((dynamic e) => (e as Map).cast<String, String>())
-          .toList(),
-      inverseur: (fields[5] as List)
-          .map((dynamic e) => (e as Map).cast<String, String>())
-          .toList(),
-      stabilisateur: (fields[6] as List)
-          .map((dynamic e) => (e as Map).cast<String, String>())
-          .toList(),
-      onduleurs: (fields[7] as List)
-          .map((dynamic e) => (e as Map).cast<String, String>())
-          .toList(),
+      alimentationMoyenneTension:
+          (fields[1] as List?)?.cast<InstallationItem>(),
+      alimentationBasseTension: (fields[2] as List?)?.cast<InstallationItem>(),
+      groupeElectrogene: (fields[3] as List?)?.cast<InstallationItem>(),
+      alimentationCarburant: (fields[4] as List?)?.cast<InstallationItem>(),
+      inverseur: (fields[5] as List?)?.cast<InstallationItem>(),
+      stabilisateur: (fields[6] as List?)?.cast<InstallationItem>(),
+      onduleurs: (fields[7] as List?)?.cast<InstallationItem>(),
       regimeNeutre: fields[8] as String?,
       eclairageSecurite: fields[9] as String?,
       modificationsInstallations: fields[10] as String?,
@@ -99,6 +86,46 @@ class DescriptionInstallationsAdapter
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is DescriptionInstallationsAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class InstallationItemAdapter extends TypeAdapter<InstallationItem> {
+  @override
+  final int typeId = 25;
+
+  @override
+  InstallationItem read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return InstallationItem(
+      data: (fields[0] as Map).cast<String, String>(),
+      photoPaths: (fields[1] as List?)?.cast<String>(),
+      createdAt: fields[2] as DateTime?,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, InstallationItem obj) {
+    writer
+      ..writeByte(3)
+      ..writeByte(0)
+      ..write(obj.data)
+      ..writeByte(1)
+      ..write(obj.photoPaths)
+      ..writeByte(2)
+      ..write(obj.createdAt);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InstallationItemAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

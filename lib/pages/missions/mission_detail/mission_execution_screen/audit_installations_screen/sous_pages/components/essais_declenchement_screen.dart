@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inspec_app/models/mission.dart';
 import 'package:inspec_app/models/mesures_essais.dart';
-import 'package:inspec_app/constants/app_theme.dart';
 import 'package:inspec_app/services/hive_service.dart';
 
 class EssaisDeclenchementScreen extends StatefulWidget {
@@ -34,10 +33,6 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
       setState(() => _isLoading = false);
     }
   }
-
-
-
-
 
   Future<void> _supprimerEssai(int index) async {
     showDialog(
@@ -97,7 +92,7 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
         statutIcon = Icons.help_outline;
     }
 
-    return  Container(
+    return Container(
       margin: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -139,7 +134,7 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
                       ],
                     ),
                   ),
-               ],
+                ],
               ),
               
               SizedBox(height: 12),
@@ -149,14 +144,14 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if(essai.designationCircuit != null && essai.designationCircuit!.isNotEmpty) ...[
-                  Text(
-                    essai.designationCircuit!,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                    Text(
+                      essai.designationCircuit!,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
                     ),
-                  ),
                   ],
                   SizedBox(height: 4),
                   Row(
@@ -351,7 +346,6 @@ class _EssaisDeclenchementScreenState extends State<EssaisDeclenchementScreen> {
           ? Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                
                 if (_essais.isEmpty)
                   Expanded(
                     child: Center(
@@ -406,21 +400,21 @@ class AjouterEssaiDeclenchementScreen extends StatefulWidget {
   final Mission mission;
   final EssaiDeclenchementDifferentiel? essai;
   final int? index;
-   final String? localisationPredefinie;
-   final String? coffretPredefini; 
+  final String? localisationPredefinie;
+  final String? coffretPredefini; 
 
   const AjouterEssaiDeclenchementScreen({
     super.key,
     required this.mission,
     this.essai,
     this.index,
-     this.localisationPredefinie, 
-     this.coffretPredefini, 
+    this.localisationPredefinie, 
+    this.coffretPredefini, 
   });
 
   bool get isEdition => essai != null;
-    bool get aLocalisationPredefinie => localisationPredefinie != null && localisationPredefinie!.isNotEmpty;
-      bool get aCoffretPredefini => coffretPredefini != null && coffretPredefini!.isNotEmpty;
+  bool get aLocalisationPredefinie => localisationPredefinie != null && localisationPredefinie!.isNotEmpty;
+  bool get aCoffretPredefini => coffretPredefini != null && coffretPredefini!.isNotEmpty;
 
   @override
   State<AjouterEssaiDeclenchementScreen> createState() => _AjouterEssaiDeclenchementScreenState();
@@ -441,39 +435,53 @@ class _AjouterEssaiDeclenchementScreenState extends State<AjouterEssaiDeclenchem
   
   List<String> _localisations = [];
   List<String> _coffrets = [];
+  
+  // Variables de validation
+  bool _localisationValid = false;
+  bool _coffretValid = true; // True par défaut car peut être vide
+  bool _circuitValid = false;
+  bool _typeValid = true; // Toujours valide car a une valeur par défaut
+  bool _resultatValid = true; // Toujours valide car a une valeur par défaut
+  bool _reglageValid = false;
+  bool _tempoValid = false;
+  bool _isolementValid = false;
+  bool _observationValid = false;
 
-@override
-void initState() {
-  super.initState();
-  
-  // Si on a un coffret prédéfini, le mettre directement
-  if (widget.aCoffretPredefini) {
-    _coffretController.text = widget.coffretPredefini!;
-  }
-  
-  _chargerLocalisations();
-  
-  if (widget.isEdition) {
-    _chargerDonneesExistantes();
-  } else {
-    // Gérer la localisation prédéfinie
-    if (widget.aLocalisationPredefinie) {
-      _localisationController.text = widget.localisationPredefinie!;
-      // Charger les coffrets pour cette localisation
-      _coffrets = HiveService.getCoffretsForLocalisation(
-        widget.mission.id, 
-        widget.localisationPredefinie!
-      );
-      
-      // Si on a un coffret prédéfini, s'assurer qu'il est dans la liste
-      if (widget.aCoffretPredefini && !_coffrets.contains(widget.coffretPredefini)) {
-        _coffrets.add(widget.coffretPredefini!);
-      }
+  @override
+  void initState() {
+    super.initState();
+    
+    // Si on a un coffret prédéfini, le mettre directement
+    if (widget.aCoffretPredefini) {
+      _coffretController.text = widget.coffretPredefini!;
+      _coffretValid = true;
+    }
+    
+    _chargerLocalisations();
+    
+    if (widget.isEdition) {
+      _chargerDonneesExistantes();
     } else {
-      _localisationController.text = _localisations.isNotEmpty ? _localisations.first : '';
+      // Gérer la localisation prédéfinie
+      if (widget.aLocalisationPredefinie) {
+        _localisationController.text = widget.localisationPredefinie!;
+        _localisationValid = true;
+        // Charger les coffrets pour cette localisation
+        _coffrets = HiveService.getCoffretsForLocalisation(
+          widget.mission.id, 
+          widget.localisationPredefinie!
+        );
+        
+        // Si on a un coffret prédéfini, s'assurer qu'il est dans la liste
+        if (widget.aCoffretPredefini && !_coffrets.contains(widget.coffretPredefini)) {
+          _coffrets.add(widget.coffretPredefini!);
+        }
+      } else {
+        _localisationController.text = _localisations.isNotEmpty ? _localisations.first : '';
+        _localisationValid = _localisations.isNotEmpty;
+      }
     }
   }
-}
 
   void _chargerLocalisations() {
     _localisations = HiveService.getLocalisationsForEssais(widget.mission.id);
@@ -497,154 +505,282 @@ void initState() {
     
     // Ensuite charger les données
     _localisationController.text = essai.localisation;
+    _localisationValid = essai.localisation.isNotEmpty;
     
     // Charger les coffrets pour cette localisation
     _coffrets = HiveService.getCoffretsForLocalisation(widget.mission.id, essai.localisation);
     
     if (essai.coffret != null && essai.coffret!.isNotEmpty) {
       _coffretController.text = essai.coffret!;
+      _coffretValid = true;
       // S'assurer que le coffret est dans la liste
       if (!_coffrets.contains(essai.coffret)) {
         _coffrets.add(essai.coffret!);
       }
     }
+    
     _circuitController.text = essai.designationCircuit!;
+    _circuitValid = essai.designationCircuit != null && essai.designationCircuit!.isNotEmpty;
+    
     _selectedType = essai.typeDispositif;
+    
     if (essai.reglageIAn != null) {
       _reglageController.text = essai.reglageIAn!.toString();
+      _reglageValid = true;
     }
+    
     if (essai.tempo != null) {
       _tempoController.text = essai.tempo!.toString();
+      _tempoValid = true;
     }
+    
     if (essai.isolement != null) {
       _isolementController.text = essai.isolement!.toString();
+      _isolementValid = true;
     }
+    
     _selectedResultat = essai.essai;
+    
     if (essai.observation != null) {
       _observationController.text = essai.observation!;
+      _observationValid = true;
     }
   }
 
+  // Méthodes de validation
+  void _validateLocalisation(String value) {
+    setState(() {
+      _localisationValid = value.trim().isNotEmpty;
+    });
+  }
+
+  void _validateCoffret(String value) {
+    setState(() {
+      _coffretValid = value.trim().isNotEmpty;
+    });
+  }
+
+  void _validateCircuit(String value) {
+    setState(() {
+      _circuitValid = value.trim().isNotEmpty;
+    });
+  }
+
+  void _validateReglage(String value) {
+    setState(() {
+      _reglageValid = value.trim().isNotEmpty;
+    });
+  }
+
+  void _validateTempo(String value) {
+    setState(() {
+      _tempoValid = value.trim().isNotEmpty;
+    });
+  }
+
+  void _validateIsolement(String value) {
+    setState(() {
+      _isolementValid = value.trim().isNotEmpty;
+    });
+  }
+
+  void _validateObservation(String value) {
+    setState(() {
+      _observationValid = value.trim().isNotEmpty;
+    });
+  }
+
+  bool _validateAllFields() {
+    bool allValid = true;
+    
+    // Valider localisation
+    if (_localisationController.text.trim().isEmpty) {
+      _localisationValid = false;
+      allValid = false;
+    }
+    
+    // Valider coffret
+    if (_coffretController.text.trim().isEmpty) {
+      _coffretValid = false;
+      allValid = false;
+    }
+    
+    // Valider circuit
+    if (_circuitController.text.trim().isEmpty) {
+      _circuitValid = false;
+      allValid = false;
+    }
+    
+    // Valider réglage
+    if (_reglageController.text.trim().isEmpty) {
+      _reglageValid = false;
+      allValid = false;
+    }
+    
+    // Valider temporisation
+    if (_tempoController.text.trim().isEmpty) {
+      _tempoValid = false;
+      allValid = false;
+    }
+    
+    // Valider isolement
+    if (_isolementController.text.trim().isEmpty) {
+      _isolementValid = false;
+      allValid = false;
+    }
+    
+    // Valider observation
+    if (_observationController.text.trim().isEmpty) {
+      _observationValid = false;
+      allValid = false;
+    }
+    
+    setState(() {});
+    return allValid;
+  }
+
   Widget _buildCoffretField() {
-  if (widget.aCoffretPredefini) {
-    // Afficher un champ texte non modifiable pour le coffret
-    return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Coffret',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
+    if (widget.aCoffretPredefini) {
+      // Afficher un champ texte non modifiable pour le coffret
+      return Container(
+        margin: EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Coffret*',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
             ),
-          ),
-          SizedBox(height: 4),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.electrical_services, size: 20, color: Colors.grey.shade600),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _coffretController.text,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade800,
+            SizedBox(height: 4),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _coffretValid ? Colors.grey.shade300 : Colors.red,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.electrical_services, size: 20, color: Colors.grey.shade600),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _coffretController.text,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade800,
+                      ),
                     ),
                   ),
-                ),
-                Tooltip(
-                  message: 'Coffret défini automatiquement',
-                  child: Icon(Icons.info_outline, size: 18, color: Colors.blue),
-                ),
-              ],
+                  Tooltip(
+                    message: 'Coffret défini automatiquement',
+                    child: Icon(Icons.info_outline, size: 18, color: Colors.blue),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  } else {
-    // Afficher le dropdown normal
-    return _buildDropdown(
-      'Coffret',
-      ['', ..._coffrets],
-      _coffretController.text,
-      (value) {
-        if (value != null) {
-          setState(() => _coffretController.text = value);
-        }
-      },
-    );
+            if (!_coffretValid)
+              Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  'Le coffret est obligatoire',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    } else {
+      // Afficher le dropdown normal
+      return _buildDropdown(
+        'Coffret*',
+        ['', ..._coffrets],
+        _coffretController.text,
+        (value) {
+          if (value != null) {
+            setState(() {
+              _coffretController.text = value;
+              _validateCoffret(value);
+            });
+          }
+        },
+        isValid: _coffretValid,
+      );
+    }
   }
-}
 
   void _onLocalisationChanged(String? value) {
     if (value != null) {
       setState(() {
         _localisationController.text = value;
+        _validateLocalisation(value);
         _coffrets = HiveService.getCoffretsForLocalisation(widget.mission.id, value);
       });
     }
   }
 
   Future<void> _sauvegarder() async {
-    if (_formKey.currentState!.validate()) {
-      final essai = EssaiDeclenchementDifferentiel(
-        localisation: _localisationController.text.trim(),
-        coffret: _coffretController.text.trim().isNotEmpty
-            ? _coffretController.text.trim()
-            : null,
-        designationCircuit: _circuitController.text.trim(),
-        typeDispositif: _selectedType,
-        reglageIAn: _reglageController.text.trim().isNotEmpty
-            ? double.tryParse(_reglageController.text.trim())
-            : null,
-        tempo: _tempoController.text.trim().isNotEmpty
-            ? double.tryParse(_tempoController.text.trim())
-            : null,
-        isolement: _isolementController.text.trim().isNotEmpty
-            ? double.tryParse(_isolementController.text.trim())
-            : null,
-        essai: _selectedResultat,
-        observation: _observationController.text.trim().isNotEmpty
-            ? _observationController.text.trim()
-            : null,
+    // Valider tous les champs
+    if (!_validateAllFields()) {
+      _showError('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    final essai = EssaiDeclenchementDifferentiel(
+      localisation: _localisationController.text.trim(),
+      coffret: _coffretController.text.trim().isNotEmpty
+          ? _coffretController.text.trim()
+          : null,
+      designationCircuit: _circuitController.text.trim(),
+      typeDispositif: _selectedType,
+      reglageIAn: _reglageController.text.trim().isNotEmpty
+          ? double.tryParse(_reglageController.text.trim())
+          : null,
+      tempo: _tempoController.text.trim().isNotEmpty
+          ? double.tryParse(_tempoController.text.trim())
+          : null,
+      isolement: _isolementController.text.trim().isNotEmpty
+          ? double.tryParse(_isolementController.text.trim())
+          : null,
+      essai: _selectedResultat,
+      observation: _observationController.text.trim().isNotEmpty
+          ? _observationController.text.trim()
+          : null,
+    );
+
+    bool success;
+    if (widget.isEdition) {
+      success = await HiveService.updateEssaiDeclenchement(
+        missionId: widget.mission.id,
+        index: widget.index!,
+        essai: essai,
       );
+    } else {
+      success = await HiveService.addEssaiDeclenchement(
+        missionId: widget.mission.id,
+        essai: essai,
+      );
+    }
 
-      bool success;
-      if (widget.isEdition) {
-        success = await HiveService.updateEssaiDeclenchement(
-          missionId: widget.mission.id,
-          index: widget.index!,
-          essai: essai,
-        );
-      } else {
-        success = await HiveService.addEssaiDeclenchement(
-          missionId: widget.mission.id,
-          essai: essai,
-        );
-      }
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.isEdition ? 'Essai modifié' : 'Essai ajouté'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true);
-      } else {
-        _showError('Erreur lors de la sauvegarde');
-      }
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.isEdition ? 'Essai modifié' : 'Essai ajouté'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context, true);
+    } else {
+      _showError('Erreur lors de la sauvegarde');
     }
   }
 
@@ -662,7 +798,32 @@ void initState() {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool isRequired = true, int maxLines = 1}) {
+  Widget _buildTextField(String label, TextEditingController controller, {bool isRequired = true, int maxLines = 1, Function(String)? onChanged}) {
+    bool isValid = true;
+    String? errorText;
+    
+    if (isRequired) {
+      if (label.contains('Localisation')) {
+        isValid = _localisationValid;
+      } else if (label.contains('Coffret')) {
+        isValid = _coffretValid;
+      } else if (label.contains('Circuit')) {
+        isValid = _circuitValid;
+      } else if (label.contains('Réglage')) {
+        isValid = _reglageValid;
+      } else if (label.contains('Temporisation')) {
+        isValid = _tempoValid;
+      } else if (label.contains('Isolement')) {
+        isValid = _isolementValid;
+      } else if (label.contains('Observation')) {
+        isValid = _observationValid;
+      }
+      
+      if (!isValid) {
+        errorText = 'Ce champ est obligatoire';
+      }
+    }
+    
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       child: Column(
@@ -670,26 +831,47 @@ void initState() {
         children: [
           TextFormField(
             controller: controller,
+            onChanged: (value) {
+              if (onChanged != null) onChanged(value);
+              if (isRequired) {
+                if (label.contains('Localisation')) _validateLocalisation(value);
+                else if (label.contains('Coffret')) _validateCoffret(value);
+                else if (label.contains('Circuit')) _validateCircuit(value);
+                else if (label.contains('Réglage')) _validateReglage(value);
+                else if (label.contains('Temporisation')) _validateTempo(value);
+                else if (label.contains('Isolement')) _validateIsolement(value);
+                else if (label.contains('Observation')) _validateObservation(value);
+              }
+            },
             decoration: InputDecoration(
               labelText: '$label${isRequired ? '*' : ''}',
-              border: OutlineInputBorder(),
+              border: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: isValid ? Colors.grey : Colors.red,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: isValid ? Colors.grey : Colors.red,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: isValid ? Colors.blue : Colors.red,
+                ),
+              ),
+              errorText: errorText,
               filled: true,
               fillColor: Colors.grey.shade50,
             ),
             maxLines: maxLines,
-            validator: isRequired ? (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Veuillez saisir $label';
-              }
-              return null;
-            } : null,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDropdown(String label, List<String> options, String value, Function(String?) onChanged, {bool allowCustom = false}) {
+  Widget _buildDropdown(String label, List<String> options, String value, Function(String?) onChanged, {bool isValid = true}) {
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       child: Column(
@@ -709,7 +891,9 @@ void initState() {
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(
+                color: isValid ? Colors.grey.shade300 : Colors.red,
+              ),
             ),
             child: DropdownButton<String>(
               value: value.isNotEmpty && options.contains(value) ? value : (options.isNotEmpty ? options.first : null),
@@ -722,14 +906,25 @@ void initState() {
                 );
               }).toList(),
               onChanged: onChanged,
-              // Gérer le cas où la valeur n'est pas dans la liste
               hint: Text('Sélectionner...'),
             ),
           ),
+          if (!isValid)
+            Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'Ce champ est obligatoire',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 12,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -755,6 +950,18 @@ void initState() {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Titre explicatif
+              Container(
+                padding: EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'TOUS LES CHAMPS SONT OBLIGATOIRES*',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
               
               // Formulaire
               Container(
@@ -771,12 +978,15 @@ void initState() {
                       _localisations,
                       _localisationController.text.isNotEmpty ? _localisationController.text : _localisations.first,
                       _onLocalisationChanged,
+                      isValid: _localisationValid,
                     ),
 
-                  // Utiliser _buildCoffretField()
-                  _buildCoffretField(),
+                    // Utiliser _buildCoffretField()
+                    _buildCoffretField(),
                     
-                    _buildTextField('Désignation du circuit', _circuitController, isRequired: false),
+                    _buildTextField('Désignation du circuit*', _circuitController, 
+                      onChanged: (value) => _validateCircuit(value),
+                    ),
                     
                     Row(
                       children: [
@@ -808,15 +1018,38 @@ void initState() {
                       ],
                     ),
                     
-                     _buildTextField('Réglage IΔn (mA)', _reglageController, isRequired: false),
-                        
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            'Réglage IΔn (mA)*', 
+                            _reglageController,
+                            onChanged: (value) => _validateReglage(value),
+                          ),
+                        ),
                         SizedBox(width: 16),
-                        _buildTextField('Temporisation (s)', _tempoController, isRequired: false),
-                        
+                        Expanded(
+                          child: _buildTextField(
+                            'Temporisation (s)*', 
+                            _tempoController,
+                            onChanged: (value) => _validateTempo(value),
+                          ),
+                        ),
+                      ],
+                    ),
                     
-                    _buildTextField('Isolement (MΩ)', _isolementController, isRequired: false),
+                    _buildTextField(
+                      'Isolement (MΩ)*', 
+                      _isolementController,
+                      onChanged: (value) => _validateIsolement(value),
+                    ),
                     
-                    _buildTextField('Observation', _observationController, isRequired: false, maxLines: 3),
+                    _buildTextField(
+                      'Observation*', 
+                      _observationController, 
+                      maxLines: 3,
+                      onChanged: (value) => _validateObservation(value),
+                    ),
                   ],
                 ),
               ),

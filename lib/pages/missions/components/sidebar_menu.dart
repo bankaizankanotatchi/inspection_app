@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../../../models/verificateur.dart';
 import '../../../models/mission.dart';
@@ -14,7 +15,6 @@ class SidebarMenu extends StatelessWidget {
   final int currentPageIndex;
   final Function(int) onNavigationItemSelected;
   final VoidCallback onClose;
-  final String lastSyncInfo; // NOUVEAU : Info de dernière synchronisation
 
   const SidebarMenu({
     super.key,
@@ -26,7 +26,6 @@ class SidebarMenu extends StatelessWidget {
     required this.currentPageIndex,
     required this.onNavigationItemSelected,
     required this.onClose,
-    required this.lastSyncInfo, // Requis maintenant
   });
 
   Future<void> _logout(BuildContext context) async {
@@ -114,9 +113,7 @@ class SidebarMenu extends StatelessWidget {
                         color: Colors.white.withOpacity(0.9),
                       ),
                     ),
-                    
-                    
-                    // Indicateurs de filtre/recherche
+                    const SizedBox(height: 8),
                     if (selectedFilter != 'Tous' || searchQuery.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Container(
@@ -139,26 +136,6 @@ class SidebarMenu extends StatelessWidget {
                         ),
                       ),
                     ],
-                    
-                    // Info missions
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${filteredMissions.length} mission(s)',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -176,55 +153,6 @@ class SidebarMenu extends StatelessWidget {
                 title: 'Statistiques',
                 isSelected: currentPageIndex == 1,
                 onTap: () => onNavigationItemSelected(1),
-              ),
-
-              // Section info synchronisation
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.lightBlue),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.autorenew, size: 16, color: AppTheme.primaryBlue),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Synchronisation',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.darkBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'La synchronisation se fait automatiquement toutes les 24 heures.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textLight,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Dernière: $lastSyncInfo',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.primaryBlue,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
 
               // Espace vide

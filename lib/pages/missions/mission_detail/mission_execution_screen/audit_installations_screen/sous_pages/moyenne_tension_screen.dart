@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:inspec_app/models/audit_installations_electriques.dart';
 import 'package:inspec_app/models/mission.dart';
 import 'package:inspec_app/constants/app_theme.dart';
-import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/classement_locaux_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/ajouter_local_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/ajouter_zone_screen.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/sous_pages/components/detail_local_screen.dart';
@@ -358,8 +357,8 @@ void _showAddModal() {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatCard('Locaux', _getTotalLocaux(), Icons.domain),
                 _buildStatCard('Zones', _audit!.moyenneTensionZones.length, Icons.map_outlined),
+                _buildStatCard('Locaux', _getTotalLocaux(), Icons.domain),
                 _buildStatCard('Coffrets', _getTotalCoffrets(), Icons.electrical_services),
               ],
             ),

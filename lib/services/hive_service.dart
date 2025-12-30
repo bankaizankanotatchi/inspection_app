@@ -48,6 +48,7 @@ class HiveService {
   Hive.registerAdapter(EssaiDeclenchementDifferentielAdapter());
   Hive.registerAdapter(ContinuiteResistanceAdapter());
   Hive.registerAdapter(ObservationLibreAdapter());
+  Hive.registerAdapter(InstallationItemAdapter()); 
   
 
     // Ouvrir les boxes
@@ -633,37 +634,45 @@ static Future<bool> resetAllDocuments(String missionId) async {
   // ============================================================
 
   /// Créer ou récupérer les données de description des installations pour une mission
-  static Future<DescriptionInstallations> getOrCreateDescriptionInstallations(String missionId) async {
-    final box = Hive.box<DescriptionInstallations>(_descriptionBox);
-    
-    // Chercher les données existantes
-    final existing = box.values.firstWhere(
-      (desc) => desc.missionId == missionId,
-      orElse: () => DescriptionInstallations.create(missionId),
-    );
-
-    // Si c'est une nouvelle instance, la sauvegarder
-    if (existing.key == null) {
-      await box.add(existing);
-      
-      // Mettre à jour la référence dans la mission
-      final missionBox = Hive.box<Mission>(_missionBox);
-      final mission = missionBox.get(missionId);
-      if (mission != null) {
-        mission.descriptionInstallationsId = existing.key.toString();
-        await mission.save();
+static Future<DescriptionInstallations> getOrCreateDescriptionInstallations(String missionId) async {
+  final box = await Hive.openBox<DescriptionInstallations>('description_installations'); // OUVERTURE EXPLICITE
+  
+  try {
+    // Chercher par missionId
+    for (var desc in box.values) {
+      if (desc.missionId == missionId) {
+        return desc;
       }
     }
-
-    return existing;
+  } catch (e) {
+    print('❌ Erreur lors de la recherche: $e');
   }
-
+  
+  // Créer une nouvelle instance si non trouvée
+  final newDesc = DescriptionInstallations.create(missionId);
+  await box.add(newDesc);
+  
+  // Mettre à jour la référence dans la mission
+  final missionBox = Hive.box<Mission>(_missionBox);
+  final mission = missionBox.get(missionId);
+  if (mission != null) {
+    mission.descriptionInstallationsId = newDesc.key.toString();
+    await mission.save();
+  }
+  
+  return newDesc;
+}
   /// Sauvegarder les données de description des installations
-  static Future<void> saveDescriptionInstallations(DescriptionInstallations desc) async {
-    final box = Hive.box<DescriptionInstallations>(_descriptionBox);
+static Future<void> saveDescriptionInstallations(DescriptionInstallations desc) async {
+  try {
+    final box = await Hive.openBox<DescriptionInstallations>('description_installations');
     desc.updatedAt = DateTime.now();
-    await desc.save();
+    await box.put(desc.key, desc);
+    await box.close();
+  } catch (e) {
+    print('❌ Erreur saveDescriptionInstallations: $e');
   }
+}
 
   /// Récupérer les données de description des installations par missionId
   static DescriptionInstallations? getDescriptionInstallationsByMissionId(String missionId) {
@@ -675,50 +684,354 @@ static Future<bool> resetAllDocuments(String missionId) async {
     }
   }
 
-  /// Ajouter une carte à une section spécifique
-  static Future<bool> addCarteToSection({
-    required String missionId,
-    required String section,
-    required Map<String, String> carte,
-  }) async {
-    try {
-      final desc = await getOrCreateDescriptionInstallations(missionId);
-      
-      switch (section) {
-        case 'alimentation_moyenne_tension':
-          desc.alimentationMoyenneTension.add(carte);
-          break;
-        case 'alimentation_basse_tension':
-          desc.alimentationBasseTension.add(carte);
-          break;
-        case 'groupe_electrogene':
-          desc.groupeElectrogene.add(carte);
-          break;
-        case 'alimentation_carburant':
-          desc.alimentationCarburant.add(carte);
-          break;
-        case 'inverseur':
-          desc.inverseur.add(carte);
-          break;
-        case 'stabilisateur':
-          desc.stabilisateur.add(carte);
-          break;
-        case 'onduleurs':
-          desc.onduleurs.add(carte);
-          break;
-        default:
-          print('❌ Section inconnue: $section');
-          return false;
-      }
+  // Dans hive_service.dart - Ajoutez ces méthodes
 
-      await saveDescriptionInstallations(desc);
-      print('✅ Carte ajoutée à la section: $section');
-      return true;
-    } catch (e) {
-      print('❌ Erreur addCarteToSection: $e');
-      return false;
+// ============================================================
+//          GESTION INSTALLATION ITEM AVEC PHOTOS
+// ============================================================
+
+/// Ajouter une carte (InstallationItem) à une section spécifique
+static Future<bool> addInstallationItemToSection({
+  required String missionId,
+  required String section,
+  required InstallationItem item,
+}) async {
+  try {
+    final box = await Hive.openBox<DescriptionInstallations>('description_installations'); // OUVERTURE EXPLICITE
+    final desc = await getOrCreateDescriptionInstallations(missionId);
+    
+    switch (section) {
+      case 'alimentation_moyenne_tension':
+        desc.alimentationMoyenneTension.add(item);
+        break;
+      case 'alimentation_basse_tension':
+        desc.alimentationBasseTension.add(item);
+        break;
+      case 'groupe_electrogene':
+        desc.groupeElectrogene.add(item);
+        break;
+      case 'alimentation_carburant':
+        desc.alimentationCarburant.add(item);
+        break;
+      case 'inverseur':
+        desc.inverseur.add(item);
+        break;
+      case 'stabilisateur':
+        desc.stabilisateur.add(item);
+        break;
+      case 'onduleurs':
+        desc.onduleurs.add(item);
+        break;
+      default:
+        print('❌ Section inconnue: $section');
+        return false;
     }
+
+    desc.updatedAt = DateTime.now(); // METTRE À JOUR LA DATE
+    await box.put(desc.key, desc); // SAUVEGARDER CORRECTEMENT
+    await box.close(); // FERMER LA BOX
+    
+    print('✅ InstallationItem ajouté à la section: $section');
+    return true;
+  } catch (e) {
+    print('❌ Erreur addInstallationItemToSection: $e');
+    return false;
   }
+}
+/// Mettre à jour une InstallationItem existante
+static Future<bool> updateInstallationItemInSection({
+  required String missionId,
+  required String section,
+  required int index,
+  required InstallationItem item,
+}) async {
+  try {
+    final desc = await getOrCreateDescriptionInstallations(missionId);
+    
+    switch (section) {
+      case 'alimentation_moyenne_tension':
+        if (index < desc.alimentationMoyenneTension.length) {
+          desc.alimentationMoyenneTension[index] = item;
+        }
+        break;
+      case 'alimentation_basse_tension':
+        if (index < desc.alimentationBasseTension.length) {
+          desc.alimentationBasseTension[index] = item;
+        }
+        break;
+      case 'groupe_electrogene':
+        if (index < desc.groupeElectrogene.length) {
+          desc.groupeElectrogene[index] = item;
+        }
+        break;
+      case 'alimentation_carburant':
+        if (index < desc.alimentationCarburant.length) {
+          desc.alimentationCarburant[index] = item;
+        }
+        break;
+      case 'inverseur':
+        if (index < desc.inverseur.length) {
+          desc.inverseur[index] = item;
+        }
+        break;
+      case 'stabilisateur':
+        if (index < desc.stabilisateur.length) {
+          desc.stabilisateur[index] = item;
+        }
+        break;
+      case 'onduleurs':
+        if (index < desc.onduleurs.length) {
+          desc.onduleurs[index] = item;
+        }
+        break;
+      default:
+        print('❌ Section inconnue: $section');
+        return false;
+    }
+
+    await saveDescriptionInstallations(desc);
+    print('✅ InstallationItem mis à jour dans la section: $section');
+    return true;
+  } catch (e) {
+    print('❌ Erreur updateInstallationItemInSection: $e');
+    return false;
+  }
+}
+
+/// Récupérer tous les InstallationItems d'une section
+static Future<List<InstallationItem>> getInstallationItemsFromSection({
+  required String missionId,
+  required String section,
+}) async {
+  try {
+    final desc = await getOrCreateDescriptionInstallations(missionId);
+    
+    switch (section) {
+      case 'alimentation_moyenne_tension':
+        return desc.alimentationMoyenneTension;
+      case 'alimentation_basse_tension':
+        return desc.alimentationBasseTension;
+      case 'groupe_electrogene':
+        return desc.groupeElectrogene;
+      case 'alimentation_carburant':
+        return desc.alimentationCarburant;
+      case 'inverseur':
+        return desc.inverseur;
+      case 'stabilisateur':
+        return desc.stabilisateur;
+      case 'onduleurs':
+        return desc.onduleurs;
+      default:
+        print('❌ Section inconnue: $section');
+        return [];
+    }
+  } catch (e) {
+    print('❌ Erreur getInstallationItemsFromSection: $e');
+    return [];
+  }
+}
+
+/// Supprimer une InstallationItem d'une section
+static Future<bool> removeInstallationItemFromSection({
+  required String missionId,
+  required String section,
+  required int index,
+}) async {
+  try {
+    final desc = await getOrCreateDescriptionInstallations(missionId);
+    
+    switch (section) {
+      case 'alimentation_moyenne_tension':
+        if (index < desc.alimentationMoyenneTension.length) {
+          desc.alimentationMoyenneTension.removeAt(index);
+        }
+        break;
+      case 'alimentation_basse_tension':
+        if (index < desc.alimentationBasseTension.length) {
+          desc.alimentationBasseTension.removeAt(index);
+        }
+        break;
+      case 'groupe_electrogene':
+        if (index < desc.groupeElectrogene.length) {
+          desc.groupeElectrogene.removeAt(index);
+        }
+        break;
+      case 'alimentation_carburant':
+        if (index < desc.alimentationCarburant.length) {
+          desc.alimentationCarburant.removeAt(index);
+        }
+        break;
+      case 'inverseur':
+        if (index < desc.inverseur.length) {
+          desc.inverseur.removeAt(index);
+        }
+        break;
+      case 'stabilisateur':
+        if (index < desc.stabilisateur.length) {
+          desc.stabilisateur.removeAt(index);
+        }
+        break;
+      case 'onduleurs':
+        if (index < desc.onduleurs.length) {
+          desc.onduleurs.removeAt(index);
+        }
+        break;
+      default:
+        print('❌ Section inconnue: $section');
+        return false;
+    }
+
+    await saveDescriptionInstallations(desc);
+    print('✅ InstallationItem supprimé de la section: $section');
+    return true;
+  } catch (e) {
+    print('❌ Erreur removeInstallationItemFromSection: $e');
+    return false;
+  }
+}
+
+/// Vérifier si une section est complète
+static Future<bool> isSectionComplete({
+  required String missionId,
+  required String sectionKey,
+}) async {
+  try {
+    final desc = await getOrCreateDescriptionInstallations(missionId);
+    return desc.isSectionComplete(sectionKey);
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Obtenir la progression de la mission
+static Future<Map<String, bool>> getMissionProgress(String missionId) async {
+  try {
+    final desc = await getOrCreateDescriptionInstallations(missionId);
+    return desc.getProgress();
+  } catch (e) {
+    print('❌ Erreur getMissionProgress: $e');
+    return {};
+  }
+}
+
+/// Obtenir le pourcentage de complétion
+static Future<int> getCompletionPercentage(String missionId) async {
+  try {
+    final desc = await getOrCreateDescriptionInstallations(missionId);
+    return desc.getCompletionPercentage();
+  } catch (e) {
+    return 0;
+  }
+}
+
+// Méthodes pour les anciennes compatibilités (à conserver)
+static Future<List<Map<String, String>>> getCartesFromSection({
+  required String missionId,
+  required String section,
+}) async {
+  try {
+    final items = await getInstallationItemsFromSection(
+      missionId: missionId,
+      section: section,
+    );
+    return items.map((item) => item.data).toList();
+  } catch (e) {
+    print('❌ Erreur getCartesFromSection: $e');
+    return [];
+  }
+}
+
+static Future<bool> addCarteToSection({
+  required String missionId,
+  required String section,
+  required Map<String, String> carte,
+}) async {
+  return await addInstallationItemToSection(
+    missionId: missionId,
+    section: section,
+    item: InstallationItem(data: carte),
+  );
+}
+
+static Future<bool> updateCarteInSection({
+  required String missionId,
+  required String section,
+  required int index,
+  required Map<String, String> carte,
+}) async {
+  final items = await getInstallationItemsFromSection(
+    missionId: missionId,
+    section: section,
+  );
+  
+  if (index < items.length) {
+    items[index].data = carte;
+    return await updateInstallationItemInSection(
+      missionId: missionId,
+      section: section,
+      index: index,
+      item: items[index],
+    );
+  }
+  return false;
+}
+
+static Future<bool> removeCarteFromSection({
+  required String missionId,
+  required String section,
+  required int index,
+}) async {
+  return await removeInstallationItemFromSection(
+    missionId: missionId,
+    section: section,
+    index: index,
+  );
+}
+
+  /// Ajouter une carte à une section spécifique
+  // static Future<bool> addCarteToSection({
+  //   required String missionId,
+  //   required String section,
+  //   required Map<String, String> carte,
+  // }) async {
+  //   try {
+  //     final desc = await getOrCreateDescriptionInstallations(missionId);
+      
+  //     switch (section) {
+  //       case 'alimentation_moyenne_tension':
+  //         desc.alimentationMoyenneTension.add(carte);
+  //         break;
+  //       case 'alimentation_basse_tension':
+  //         desc.alimentationBasseTension.add(carte);
+  //         break;
+  //       case 'groupe_electrogene':
+  //         desc.groupeElectrogene.add(carte);
+  //         break;
+  //       case 'alimentation_carburant':
+  //         desc.alimentationCarburant.add(carte);
+  //         break;
+  //       case 'inverseur':
+  //         desc.inverseur.add(carte);
+  //         break;
+  //       case 'stabilisateur':
+  //         desc.stabilisateur.add(carte);
+  //         break;
+  //       case 'onduleurs':
+  //         desc.onduleurs.add(carte);
+  //         break;
+  //       default:
+  //         print('❌ Section inconnue: $section');
+  //         return false;
+  //     }
+
+  //     await saveDescriptionInstallations(desc);
+  //     print('✅ Carte ajoutée à la section: $section');
+  //     return true;
+  //   } catch (e) {
+  //     print('❌ Erreur addCarteToSection: $e');
+  //     return false;
+  //   }
+  // }
 
   /// Mettre à jour une sélection radio
   static Future<bool> updateSelection({
@@ -769,73 +1082,73 @@ static Future<bool> resetAllDocuments(String missionId) async {
   }
 
   /// Récupérer toutes les cartes d'une section
-static Future<List<Map<String, String>>> getCartesFromSection({
-  required String missionId,
-  required String section,
-}) async {
-  try {
-    final desc = await getOrCreateDescriptionInstallations(missionId);
+// static Future<List<Map<String, String>>> getCartesFromSection({
+//   required String missionId,
+//   required String section,
+// }) async {
+//   try {
+//     final desc = await getOrCreateDescriptionInstallations(missionId);
     
-    switch (section) {
-      case 'alimentation_moyenne_tension':
-        return desc.alimentationMoyenneTension;
-      case 'alimentation_basse_tension':
-        return desc.alimentationBasseTension;
-      case 'groupe_electrogene':
-        return desc.groupeElectrogene;
-      case 'alimentation_carburant':
-        return desc.alimentationCarburant;
-      case 'inverseur':
-        return desc.inverseur;
-      case 'stabilisateur':
-        return desc.stabilisateur;
-      case 'onduleurs':
-        return desc.onduleurs;
-      default:
-        print('❌ Section inconnue: $section');
-        return [];
-    }
-  } catch (e) {
-    print('❌ Erreur getCartesFromSection: $e');
-    return [];
-  }
-}
+//     switch (section) {
+//       case 'alimentation_moyenne_tension':
+//         return desc.alimentationMoyenneTension;
+//       case 'alimentation_basse_tension':
+//         return desc.alimentationBasseTension;
+//       case 'groupe_electrogene':
+//         return desc.groupeElectrogene;
+//       case 'alimentation_carburant':
+//         return desc.alimentationCarburant;
+//       case 'inverseur':
+//         return desc.inverseur;
+//       case 'stabilisateur':
+//         return desc.stabilisateur;
+//       case 'onduleurs':
+//         return desc.onduleurs;
+//       default:
+//         print('❌ Section inconnue: $section');
+//         return [];
+//     }
+//   } catch (e) {
+//     print('❌ Erreur getCartesFromSection: $e');
+//     return [];
+//   }
+// }
 
   /// Supprimer une carte d'une section
-  static Future<bool> removeCarteFromSection({
-    required String missionId,
-    required String section,
-    required int index,
-  }) async {
-    try {
-      final desc = await getOrCreateDescriptionInstallations(missionId);
+  // static Future<bool> removeCarteFromSection({
+  //   required String missionId,
+  //   required String section,
+  //   required int index,
+  // }) async {
+  //   try {
+  //     final desc = await getOrCreateDescriptionInstallations(missionId);
       
-      switch (section) {
-        case 'alimentation_moyenne_tension':
-          if (index < desc.alimentationMoyenneTension.length) {
-            desc.alimentationMoyenneTension.removeAt(index);
-          }
-          break;
-        case 'alimentation_basse_tension':
-          if (index < desc.alimentationBasseTension.length) {
-            desc.alimentationBasseTension.removeAt(index);
-          }
-          break;
-        // ... autres sections
-        default:
-          print('❌ Section inconnue: $section');
-          return false;
-      }
+  //     switch (section) {
+  //       case 'alimentation_moyenne_tension':
+  //         if (index < desc.alimentationMoyenneTension.length) {
+  //           desc.alimentationMoyenneTension.removeAt(index);
+  //         }
+  //         break;
+  //       case 'alimentation_basse_tension':
+  //         if (index < desc.alimentationBasseTension.length) {
+  //           desc.alimentationBasseTension.removeAt(index);
+  //         }
+  //         break;
+  //       // ... autres sections
+  //       default:
+  //         print('❌ Section inconnue: $section');
+  //         return false;
+  //     }
 
-      await saveDescriptionInstallations(desc);
-      await getCartesFromSection(missionId: missionId, section: section);
-      print('✅ Carte supprimée de la section: $section');
-      return true;
-    } catch (e) {
-      print('❌ Erreur removeCarteFromSection: $e');
-      return false;
-    }
-  }
+  //     await saveDescriptionInstallations(desc);
+  //     await getCartesFromSection(missionId: missionId, section: section);
+  //     print('✅ Carte supprimée de la section: $section');
+  //     return true;
+  //   } catch (e) {
+  //     print('❌ Erreur removeCarteFromSection: $e');
+  //     return false;
+  //   }
+  // }
 
   /// Vérifier si une mission a des données de description
   static bool hasDescriptionInstallations(String missionId) {
@@ -843,64 +1156,64 @@ static Future<List<Map<String, String>>> getCartesFromSection({
   }
 
 /// Mettre à jour une carte existante dans une section
-static Future<bool> updateCarteInSection({
-  required String missionId,
-  required String section,
-  required int index,
-  required Map<String, String> carte,
-}) async {
-  try {
-    final desc = await getOrCreateDescriptionInstallations(missionId);
+// static Future<bool> updateCarteInSection({
+//   required String missionId,
+//   required String section,
+//   required int index,
+//   required Map<String, String> carte,
+// }) async {
+//   try {
+//     final desc = await getOrCreateDescriptionInstallations(missionId);
     
-    switch (section) {
-      case 'alimentation_moyenne_tension':
-        if (index < desc.alimentationMoyenneTension.length) {
-          desc.alimentationMoyenneTension[index] = carte;
-        }
-        break;
-      case 'alimentation_basse_tension':
-        if (index < desc.alimentationBasseTension.length) {
-          desc.alimentationBasseTension[index] = carte;
-        }
-        break;
-      case 'groupe_electrogene':
-        if (index < desc.groupeElectrogene.length) {
-          desc.groupeElectrogene[index] = carte;
-        }
-        break;
-      case 'alimentation_carburant':
-        if (index < desc.alimentationCarburant.length) {
-          desc.alimentationCarburant[index] = carte;
-        }
-        break;
-      case 'inverseur':
-        if (index < desc.inverseur.length) {
-          desc.inverseur[index] = carte;
-        }
-        break;
-      case 'stabilisateur':
-        if (index < desc.stabilisateur.length) {
-          desc.stabilisateur[index] = carte;
-        }
-        break;
-      case 'onduleurs':
-        if (index < desc.onduleurs.length) {
-          desc.onduleurs[index] = carte;
-        }
-        break;
-      default:
-        print('❌ Section inconnue: $section');
-        return false;
-    }
+//     switch (section) {
+//       case 'alimentation_moyenne_tension':
+//         if (index < desc.alimentationMoyenneTension.length) {
+//           desc.alimentationMoyenneTension[index] = carte;
+//         }
+//         break;
+//       case 'alimentation_basse_tension':
+//         if (index < desc.alimentationBasseTension.length) {
+//           desc.alimentationBasseTension[index] = carte;
+//         }
+//         break;
+//       case 'groupe_electrogene':
+//         if (index < desc.groupeElectrogene.length) {
+//           desc.groupeElectrogene[index] = carte;
+//         }
+//         break;
+//       case 'alimentation_carburant':
+//         if (index < desc.alimentationCarburant.length) {
+//           desc.alimentationCarburant[index] = carte;
+//         }
+//         break;
+//       case 'inverseur':
+//         if (index < desc.inverseur.length) {
+//           desc.inverseur[index] = carte;
+//         }
+//         break;
+//       case 'stabilisateur':
+//         if (index < desc.stabilisateur.length) {
+//           desc.stabilisateur[index] = carte;
+//         }
+//         break;
+//       case 'onduleurs':
+//         if (index < desc.onduleurs.length) {
+//           desc.onduleurs[index] = carte;
+//         }
+//         break;
+//       default:
+//         print('❌ Section inconnue: $section');
+//         return false;
+//     }
 
-    await saveDescriptionInstallations(desc);
-    print('✅ Carte mise à jour dans la section: $section');
-    return true;
-  } catch (e) {
-    print('❌ Erreur updateCarteInSection: $e');
-    return false;
-  }
-}
+//     await saveDescriptionInstallations(desc);
+//     print('✅ Carte mise à jour dans la section: $section');
+//     return true;
+//   } catch (e) {
+//     print('❌ Erreur updateCarteInSection: $e');
+//     return false;
+//   }
+// }
 
 // ============================================================
 //          GESTION AUDIT DES INSTALLATIONS ÉLECTRIQUES
@@ -2097,22 +2410,22 @@ static bool isEmplacementComplet(ClassementEmplacement emplacement) {
 }
 
 /// Obtenir le pourcentage de complétion
-static int getCompletionPercentage(ClassementEmplacement emplacement) {
-  int filled = 0;
-  if (emplacement.af != null) filled++;
-  if (emplacement.be != null) filled++;
-  if (emplacement.ae != null) filled++;
-  if (emplacement.ad != null) filled++;
-  if (emplacement.ag != null) filled++;
+// static int getCompletionPercentage(ClassementEmplacement emplacement) {
+//   int filled = 0;
+//   if (emplacement.af != null) filled++;
+//   if (emplacement.be != null) filled++;
+//   if (emplacement.ae != null) filled++;
+//   if (emplacement.ad != null) filled++;
+//   if (emplacement.ag != null) filled++;
   
-  return (filled / 5 * 100).round();
-}
+//   return (filled / 5 * 100).round();
+// }
 
 /// Obtenir le type d'icône pour un emplacement
-static IconData getIconForEmplacement(ClassementEmplacement emplacement) {
+static Future<IconData> getIconForEmplacement(ClassementEmplacement emplacement) async {
   if (isEmplacementComplet(emplacement)) {
     return Icons.check_circle_outline;
-  } else if (getCompletionPercentage(emplacement) > 0) {
+  } else if (await getCompletionPercentage(emplacement.missionId) > 0) {
     return Icons.info_outline;
   } else {
     return Icons.location_on_outlined;
@@ -2120,8 +2433,8 @@ static IconData getIconForEmplacement(ClassementEmplacement emplacement) {
 }
 
 /// Obtenir la couleur pour un emplacement
-static Color getColorForEmplacement(ClassementEmplacement emplacement) {
-  final percentage = getCompletionPercentage(emplacement);
+static Future<Color> getColorForEmplacement(ClassementEmplacement emplacement) async {
+  final percentage = await getCompletionPercentage(emplacement.missionId);
   
   if (percentage == 100) return Colors.green;
   if (percentage >= 50) return Colors.orange;

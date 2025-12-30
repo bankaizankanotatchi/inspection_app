@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:inspec_app/models/mission.dart';
 import 'package:inspec_app/constants/app_theme.dart';
 import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/audit_installations_screen/audit_installations.dart';
-import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/description_installations_screen/description_installations.dart';
+import 'package:inspec_app/pages/missions/mission_detail/mission_execution_screen/description_installations_screen/description_installations_sequence.dart';
 
 class MissionExecutionScreen extends StatelessWidget {
   final Mission mission;
@@ -16,7 +16,7 @@ class MissionExecutionScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DescriptionInstallationsScreen(mission: mission),
+        builder: (context) => DescriptionInstallationsSequenceScreen(mission: mission),
       ),
     );
   }

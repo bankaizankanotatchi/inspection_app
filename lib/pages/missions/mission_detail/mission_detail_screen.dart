@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:inspec_app/constants/app_theme.dart';
 import 'package:inspec_app/models/mission.dart';
 import 'package:inspec_app/models/verificateur.dart';
 import 'package:inspec_app/pages/missions/home_screen.dart';
@@ -11,11 +13,13 @@ import 'package:inspec_app/pages/missions/mission_detail/widgets/mission_team_se
 import 'package:inspec_app/pages/missions/mission_detail/widgets/status_action_button.dart';
 import 'package:inspec_app/pages/missions/mission_detail/widgets/status_selector_modal.dart';
 import 'package:inspec_app/services/hive_service.dart';
+import 'package:inspec_app/services/word_report_service.dart';
+import 'package:inspec_app/services/pdf_report_service.dart'; // Importez le service PDF
+import 'package:share_plus/share_plus.dart';
 
 class MissionDetailScreen extends StatefulWidget {
   final Mission mission;
   final Verificateur user;
-
 
   const MissionDetailScreen({
     super.key,
@@ -44,14 +48,12 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       _currentMission.updatedAt = DateTime.now();
     });
     
-    // Optionnel: Sauvegarder dans Hive
     HiveService.updateMissionStatus(
       missionId: _currentMission.id,
       newStatus: newStatus,
     );
   }
 
-  // Nouvelle méthode pour gérer les changements de documents
   void _handleDocumentChanged(String documentField, bool value) {
     setState(() {
       switch (documentField) {
@@ -95,11 +97,73 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       _currentMission.updatedAt = DateTime.now();
     });
     
-    // Sauvegarder dans Hive
     HiveService.updateDocumentStatus(
       missionId: _currentMission.id,
       documentField: documentField,
       value: value,
+    );
+  }
+
+  Future<void> _showReportGenerationDialog(BuildContext context, String reportType) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Génération du rapport $reportType en cours...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      File? file;
+      if (reportType == 'Word') {
+        file = await WordReportService.generateMissionReport(widget.mission.id);
+      } else if (reportType == 'PDF') {
+        file = await PdfReportService.generateMissionReport(widget.mission.id);
+      }
+
+      // Fermer le dialogue de chargement
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      if (file != null && file.existsSync()) {
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          subject: 'Rapport d\'audit électrique - ${widget.mission.nomClient}',
+          text: 'Voici le rapport d\'audit électrique pour ${widget.mission.nomClient}',
+        );
+      } else {
+        _showError(context, 'Erreur lors de la génération du rapport $reportType');
+      }
+    } catch (e) {
+      // Fermer le dialogue de chargement en cas d'erreur
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      _showError(context, 'Erreur lors de la génération: $e');
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Erreur'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -117,77 +181,155 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         ),
         backgroundColor: Colors.blue,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
-           onPressed: () { 
-                Navigator.of(context).pushReplacement(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () { 
+            Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                 builder: (context) => HomeScreen(user: widget.user),
               ),
             );
-           },
+          },
         ),
+        actions: [
+          // Dropdown dans l'AppBar pour générer les rapports
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (value) {
+              if (value == 'word') {
+                _showReportGenerationDialog(context, 'Word');
+              } else if (value == 'pdf') {
+                _showReportGenerationDialog(context, 'PDF');
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'word',
+                child: Row(
+                  children: [
+                    Icon(Icons.description_outlined, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('Générer Word'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf_outlined, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Générer PDF'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(8),
+        padding: const EdgeInsets.all(4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header avec logo et nom client
             MissionHeader(mission: _currentMission),
             
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             
             // Row avec badge de statut et bouton d'action
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => StatusSelectorModal(
-                          mission: _currentMission,
-                          onStatusChanged: _handleStatusChanged,
-                        ),
-                      );
-                    },
-                    child: MissionStatusBadge(status: _currentMission.status),
+            Container(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => StatusSelectorModal(
+                            mission: _currentMission,
+                            onStatusChanged: _handleStatusChanged,
+                          ),
+                        );
+                      },
+                      child: MissionStatusBadge(status: _currentMission.status),
+                    ),
                   ),
-                ),
-                SizedBox(width: 12),
-                StatusActionButton(
-                  mission: _currentMission,
-                  onStatusChanged: _handleStatusChanged,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  StatusActionButton(
+                    mission: _currentMission,
+                    onStatusChanged: _handleStatusChanged,
+                  ),
+                ],
+              ),
             ),
             
-            SizedBox(height: 24),
-            
-            // Informations générales
-            MissionInfoSection(mission: _currentMission),
+            const SizedBox(height: 16),
 
-            SizedBox(height: 16),
-            
-            // Équipe (vérificateurs et accompagnateurs)
-            MissionTeamSection(mission: _currentMission,editable: true, ),
-
-            SizedBox(height: 16),
-            
-            // Documents - AJOUT DE LA CALLBACK
+            // Documents
             MissionDocumentsSection(
               mission: _currentMission,
               onDocumentChanged: _handleDocumentChanged,
             ),
             
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
+            
+            // Informations générales
+            MissionInfoSection(mission: _currentMission),
+
+            const SizedBox(height: 16),
+            
+            // Équipe (vérificateurs et accompagnateurs)
+            MissionTeamSection(mission: _currentMission, editable: true),
+
+            const SizedBox(height: 16),
             
             // Dates importantes
             MissionDatesSection(mission: _currentMission),
             
-            SizedBox(height: 32),
+            const SizedBox(height: 16),
+            
+            // BOUTON GÉNÉRER RAPPORT WORD
+            Container(
+              padding: const EdgeInsets.only(left: 4, right: 4),
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showReportGenerationDialog(context, 'Word'),
+                icon: const Icon(Icons.description_outlined, size: 20),
+                label: const Text('Générer rapport Word'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryBlue,
+                  side: BorderSide(color: AppTheme.primaryBlue),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // NOUVEAU BOUTON POUR GÉNÉRER RAPPORT PDF
+            Container(
+              padding: const EdgeInsets.only(left: 4, right: 4),
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showReportGenerationDialog(context, 'PDF'),
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 20, color: Colors.red),
+                label: const Text('Générer rapport PDF', style: TextStyle(color: Colors.red)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 32),
           ],
         ),
       ),

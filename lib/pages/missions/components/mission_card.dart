@@ -46,10 +46,14 @@ class MissionCard extends StatelessWidget {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  
+
   @override
   Widget build(BuildContext context) {
     final normalizedStatus = _normalizeStatus(mission.status);
     final statusColor = _getStatusColor(mission.status);
+
+    
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -191,6 +195,7 @@ class MissionCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                
               ],
             ],
           ),
@@ -198,4 +203,8 @@ class MissionCard extends StatelessWidget {
       ),
     );
   }
+
+
+
 }
+

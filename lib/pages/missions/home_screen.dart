@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:inspec_app/constants/app_theme.dart';
 import 'package:inspec_app/models/mission.dart';
@@ -12,8 +11,6 @@ import 'package:inspec_app/pages/missions/components/sidebar_menu.dart';
 import 'package:inspec_app/pages/missions/components/sort_dialog.dart';
 import 'package:inspec_app/services/hive_service.dart';
 import 'package:inspec_app/services/supabase_service.dart';
-import 'package:inspec_app/services/sync_service.dart';
-import 'package:workmanager/workmanager.dart';
 
 class HomeScreen extends StatefulWidget {
   final Verificateur user;
@@ -24,15 +21,13 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+class _HomeScreenState extends State<HomeScreen> {
   List<Mission> _missions = [];
   List<Mission> _filteredMissions = [];
   bool _isSyncing = false;
   String? _syncMessage;
   bool _showSidebar = false;
   int _currentPageIndex = 0;
-  Timer? _syncCheckTimer;
-  DateTime? _lastAutoSyncTime;
   
   // Variables pour la recherche et le filtre
   String _searchQuery = '';
@@ -44,66 +39,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _loadLocalMissions();
-    _initializeAutoSync();
-    _scheduleSyncCheck();
   }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _syncCheckTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // Vérifier la synchronisation quand l'app revient au premier plan
-      _checkAutoSync();
-    }
-  }
-
-  void _initializeAutoSync() async {
-    try {
-      // Initialiser le service de synchronisation
-      await SyncService.initialize();
-      
-      // Programmer la synchronisation périodique
-      await SyncService.schedulePeriodicSync();
-      
-      // Vérifier s'il faut synchroniser maintenant
-      _checkAutoSync();
-      
-      print('✅ Synchronisation automatique initialisée');
-    } catch (e) {
-      print('❌ Erreur initialisation synchronisation automatique: $e');
-    }
-  }
-
-  void _scheduleSyncCheck() {
-    // Vérifier toutes les heures si une synchronisation est nécessaire
-    _syncCheckTimer = Timer.periodic(const Duration(hours: 1), (timer) {
-      _checkAutoSync();
-    });
-  }
-
-  Future<void> _checkAutoSync() async {
-    // Vérifier si 24 heures se sont écoulées depuis la dernière synchronisation
-    final now = DateTime.now();
-    final shouldSync = _lastAutoSyncTime == null || 
-        now.difference(_lastAutoSyncTime!) >= const Duration(hours: 24);
-    
-    if (!shouldSync) return;
-    
-    final hasConnection = await SupabaseService.testConnection();
-    if (!hasConnection) return;
-    
-    // Lancer la synchronisation automatique silencieuse
-    print('🔄 Synchronisation automatique déclenchée');
-    await _performSync(silent: true, isAutoSync: true);
-  }
+  
 
   void _loadLocalMissions() {
     setState(() {
@@ -113,27 +51,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _syncMissions() async {
-    await _performSync(silent: false, isAutoSync: false);
-  }
-
-  Future<void> _performSync({bool silent = false, bool isAutoSync = false}) async {
-    if (!silent) {
-      setState(() {
-        _isSyncing = true;
-        _syncMessage = null;
-      });
-    }
+    setState(() {
+      _isSyncing = true;
+      _syncMessage = null;
+    });
 
     try {
       final hasConnection = await SupabaseService.testConnection();
 
       if (!hasConnection) {
-        if (!silent) {
-          setState(() {
-            _syncMessage = 'Aucune connexion Internet';
-            _isSyncing = false;
-          });
-        }
+        setState(() {
+          _syncMessage = 'Aucune connexion Internet';
+          _isSyncing = false;
+        });
         return;
       }
 
@@ -148,65 +78,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
 
       _loadLocalMissions();
-      
-      // Mettre à jour la dernière synchronisation automatique
-      if (isAutoSync) {
-        _lastAutoSyncTime = DateTime.now();
-      }
 
-      if (!silent) {
-        setState(() {
-          if (newMissionsCount > 0) {
-            _syncMessage = '✓ $newMissionsCount nouvelle(s) mission(s) synchronisée(s)';
-          } else {
-            _syncMessage = '✓ Synchronisation terminée - ${onlineMissions.length} mission(s) disponibles';
-          }
-          _isSyncing = false;
-        });
+      setState(() {
+        if (newMissionsCount > 0) {
+          _syncMessage = '✓ $newMissionsCount nouvelle(s) mission(s) synchronisée(s)';
+        } else {
+          _syncMessage = '✓ Synchronisation terminée - ${onlineMissions.length} mission(s) disponibles';
+        }
+        _isSyncing = false;
+      });
 
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) {
-            setState(() {
-              _syncMessage = null;
-            });
-          }
-        });
-      } else if (newMissionsCount > 0) {
-        // Afficher un message discret pour la synchronisation automatique
-        _showAutoSyncNotification(newMissionsCount);
-      }
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _syncMessage = null;
+          });
+        }
+      });
     } catch (e) {
-      if (!silent) {
-        setState(() {
-          _syncMessage = 'Erreur de synchronisation: $e';
-          _isSyncing = false;
-        });
-      }
+      setState(() {
+        _syncMessage = 'Erreur de synchronisation: $e';
+        _isSyncing = false;
+      });
     }
-  }
-
-  void _showAutoSyncNotification(int newMissionsCount) {
-    // Afficher un SnackBar discret pour informer de la synchronisation automatique
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$newMissionsCount nouvelle(s) mission(s) synchronisée(s)'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  String _getLastSyncInfo() {
-    if (_lastAutoSyncTime == null) return 'Jamais';
-    
-    final now = DateTime.now();
-    final difference = now.difference(_lastAutoSyncTime!);
-    
-    if (difference.inMinutes < 1) return 'À l\'instant';
-    if (difference.inHours < 1) return 'Il y a ${difference.inMinutes} min';
-    if (difference.inHours < 24) return 'Il y a ${difference.inHours} h';
-    return 'Il y a ${difference.inDays} jours';
   }
 
   void _onNavigationItemSelected(int index) {
@@ -235,26 +129,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   // IMPLÉMENTATION COMPLÈTE DE LA GESTION DES PÉRIODES STATS
-  void _handleStatsPeriodChange(String period) {
-    print('🔄 Changement de période pour les stats: $period');
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _statsSelectedPeriod = period;
-        });
+void _handleStatsPeriodChange(String period) {
+  print('🔄 Changement de période pour les stats: $period');
+  
+  // Utiliser un délai pour éviter les appels pendant le build
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) {
+      setState(() {
+        _statsSelectedPeriod = period;
+      });
 
-        // Sauvegarder la préférence
-        _saveStatsPeriodPreference(period);
-      }
-    });
-  }
+      // Sauvegarder la préférence
+      _saveStatsPeriodPreference(period);
+    }
+  });
+}
 
-  void _saveStatsPeriodPreference(String period) {
-    // Sauvegarder dans les préférences locales
-    print('💾 Sauvegarde préférence période: $period');
-    // HiveService.saveStatsPeriodPreference(period);
-  }
+void _saveStatsPeriodPreference(String period) {
+  // Sauvegarder dans les préférences locales
+  print('💾 Sauvegarde préférence période: $period');
+  
+  // Exemple avec Hive si vous avez un service de préférences :
+  // HiveService.saveStatsPeriodPreference(period);
+}
 
   @override
   Widget build(BuildContext context) {
@@ -300,7 +197,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
                 onStatsPeriodSelected: _handleStatsPeriodChange,
-                lastSyncInfo: _getLastSyncInfo(),
               ),
 
               // Corps de l'application
@@ -337,7 +233,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       )
                     : const Icon(Icons.sync),
                 label: Text(_isSyncing ? 'Synchronisation...' : 'Synchroniser'),
-                tooltip: 'Dernière synchronisation: ${_getLastSyncInfo()}',
               ),
             ),
 
@@ -368,7 +263,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 _showSidebar = false;
               });
             },
-            lastSyncInfo: _getLastSyncInfo(),
           ),
         ],
       ),
@@ -403,43 +297,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ],
             ),
           ),
-
-        // Info de synchronisation automatique
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.blue.shade100, width: 0.5),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.autorenew, size: 14, color: Colors.blue.shade700),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Prochaine synchro auto: ${_getNextSyncInfo()}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue.shade700,
-                    ),
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: Icon(Icons.info_outline, size: 14, color: Colors.blue.shade700),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () {
-                  _showSyncInfoDialog();
-                },
-              ),
-            ],
-          ),
-        ),
 
         // Indicateurs de filtre/recherche actifs
         if (_selectedFilter != 'Tous' || _searchQuery.isNotEmpty)
@@ -514,51 +371,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
         ),
       ],
-    );
-  }
-
-  String _getNextSyncInfo() {
-    if (_lastAutoSyncTime == null) return 'Dans 24h';
-    
-    final now = DateTime.now();
-    final nextSyncTime = _lastAutoSyncTime!.add(const Duration(hours: 24));
-    final difference = nextSyncTime.difference(now);
-    
-    if (difference.inMinutes < 60) return 'Dans ${difference.inMinutes} min';
-    if (difference.inHours < 24) return 'Dans ${difference.inHours} h';
-    return 'Demain';
-  }
-
-  void _showSyncInfoDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Synchronisation automatique'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Dernière synchronisation: ${_getLastSyncInfo()}'),
-            const SizedBox(height: 8),
-            Text('Prochaine synchronisation: ${_getNextSyncInfo()}'),
-            const SizedBox(height: 8),
-            const Text('La synchronisation se fait automatiquement toutes les 24 heures lorsque vous êtes connecté à Internet.'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _syncMissions();
-            },
-            child: const Text('Sync maintenant'),
-          ),
-        ],
-      ),
     );
   }
 }
